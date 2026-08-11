@@ -43,10 +43,6 @@ The supported reference types are inheritance, hasTypeDefinition,
 hasComponent, and hasProperty. In a type-system graph, an omitted node class
 defaults to objtype.
 
-Node shadows can be disabled with `skinparam shadowing false`,
-`skinparam nodeShadowing false`, or `Shadowing false` inside a
-`skinparam node { ... }` block.
-
 Depth = number of leading '*' characters. The overview layout places the two
 top-level branches below the root and sends each branch's leaves outward,
 matching the reference OPC UA diagram.
@@ -77,8 +73,6 @@ MIN_HORIZONTAL_LENGTH = 40
 MIN_SPACING = 20
 MAX_GROUPS_PER_ROW = 2
 CANVAS_W, CANVAS_H = 837, 550
-NODE_SHADOW_DEFAULT = True
-
 FILL = "#e6ecf7"
 STROKE = "#4a6fa5"
 TEXT_COLOR = "#000000"
@@ -100,7 +94,7 @@ NODE_CLASSES = {"obj", "objtype", "var", "vartype", "method", "reftype", "dataty
 class Node:
     __slots__ = ("label", "nodeclass", "reference_type", "branch_group", "children", "x", "y", "w", "h", "cx", "cy",
                  "bottom", "subtree_top", "subtree_bottom", "subtree_left", "subtree_right",
-                 "node_shadow", "style")
+                 "style")
 
     def __init__(self, label, nodeclass="objtype", reference_type=None, branch_group=0):
         self.label = label
@@ -111,7 +105,6 @@ class Node:
         self.x = self.y = self.w = self.h = 0.0
         self.cx = self.cy = self.bottom = 0.0
         self.subtree_top = self.subtree_bottom = self.subtree_left = self.subtree_right = 0.0
-        self.node_shadow = NODE_SHADOW_DEFAULT
         self.style = {
             "fill": FILL,
             "stroke": STROKE,
@@ -125,7 +118,6 @@ def parse(text):
     """Parse '*'-depth WBS syntax into a Node tree. Returns the root Node."""
     stack = []  # (depth, node)
     root = None
-    node_shadow = NODE_SHADOW_DEFAULT
     style = {
         "fill": FILL,
         "stroke": STROKE,
@@ -173,23 +165,6 @@ def parse(text):
             if key in ("arrowcolor", "linecolor"):
                 style["arrow"] = value
                 continue
-        shadow_match = re.match(
-            r"^skinparam\s+(?:node\s+)?shadow(?:ing)?\s+(true|false)$",
-            stripped,
-            re.IGNORECASE,
-        )
-        if not shadow_match:
-            shadow_match = re.match(
-                r"^skinparam\s+nodeShadow(?:ing)?\s+(true|false)$",
-                stripped,
-                re.IGNORECASE,
-            )
-        if shadow_match or (in_node_skinparam and re.match(
-                r"^shadow(?:ing)?\s+(true|false)$", stripped, re.IGNORECASE)):
-            node_shadow = (shadow_match or re.match(
-                r"^shadow(?:ing)?\s+(true|false)$", stripped, re.IGNORECASE
-            )).group(1).lower() == "true"
-            continue
         if not stripped.startswith("*"):
             continue
         m = re.match(r"^(\*+)\s*(.*)$", stripped)
@@ -234,7 +209,6 @@ def parse(text):
         stack.append((depth, node))
     if root is None:
         raise ValueError("no root node found (expected a line starting with a single '*')")
-    root.node_shadow = node_shadow
     root.style = style
     return root
 
@@ -373,9 +347,9 @@ def node_points(node):
     return " ".join(f"{px:.0f},{py:.0f}" for px, py in points)
 
 
-def render_node_svg(node, style, shadow=True):
+def render_node_svg(node, style):
     parts = []
-    shadow = shadow and node.nodeclass in SHADOWED_CLASSES
+    shadow = node.nodeclass in SHADOWED_CLASSES
     filter_attr = ' filter="url(#node-shadow)"' if shadow else ""
     parts.append(f'<g{filter_attr}>')
     fill = html.escape(style["fill"], quote=True)
@@ -794,14 +768,13 @@ def render_root_connectors_svg(root, style, triangles=True):
     return parts
 
 
-def render_defs(shadow):
+def render_defs():
     parts = ["<defs>"]
-    if shadow:
-        parts.append(
-            '<filter id="node-shadow" x="-20%" y="-20%" width="150%" height="150%">'
-            '<feDropShadow dx="4" dy="5" stdDeviation="1.5" flood-color="#000000" '
-            'flood-opacity="0.5"/></filter>'
-        )
+    parts.append(
+        '<filter id="node-shadow" x="-20%" y="-20%" width="150%" height="150%">'
+        '<feDropShadow dx="4" dy="5" stdDeviation="1.5" flood-color="#000000" '
+        'flood-opacity="0.5"/></filter>'
+    )
     parts.extend((
         '<marker id="has-type-definition" viewBox="0 0 10 8" markerWidth="10" '
         'markerHeight="8" refX="10" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse">'
@@ -825,7 +798,7 @@ def to_svg(root, triangles=True):
     connectors = []
 
     def walk(node, is_root=False):
-        nodes.extend(render_node_svg(node, root.style, root.node_shadow))
+        nodes.extend(render_node_svg(node, root.style))
         if is_root:
             connectors.extend(render_root_connectors_svg(node, root.style, triangles))
         else:
@@ -840,7 +813,7 @@ def to_svg(root, triangles=True):
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{W}px" height="{H}px" '
         f'viewBox="-0.5 -0.5 {W} {H}">\n'
-        + render_defs(root.node_shadow) + '\n'
+        + render_defs() + '\n'
         + '<g>\n'
         + "\n".join(nodes + connectors) +
         '\n</g>\n</svg>\n'

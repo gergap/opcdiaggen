@@ -110,16 +110,9 @@ the node class when a different relationship is required.
 @endtypesystem
 ```
 
-Node styling is read from the relevant `skinparam` settings. Node shadows are
-enabled by default and can be disabled with any of these forms:
-
-```text
-skinparam shadowing false
-skinparam nodeShadowing false
-skinparam node {
-  Shadowing false
-}
-```
+Node styling is read from the relevant `skinparam` settings. Shadows are
+mandatory for type nodes and are not configurable; instance nodes do not have
+shadows.
 
 Use `--no-triangles` with `tree2svg.py` to omit UML inheritance triangles.
 
