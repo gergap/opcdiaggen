@@ -1,0 +1,18 @@
+' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
+' SPDX-License-Identifier: MIT
+
+@starttypesystem
+* obj "Root"
+** Organizes obj "Objects"
+*** Organizes var "Temperature"
+*** Organizes obj "Server"
+**** Organizes var "ServerStatus"
+***** Organizes var "BuildInfo"
+***** Organizes var "CurrentTime"
+***** Organizes var "SecondsTillShutdown"
+***** Organizes var "ShutdownReason"
+***** Organizes var "StartTime"
+***** Organizes var "State"
+** Organizes obj "Types"
+** Organizes obj "Views"
+@endtypesystem
