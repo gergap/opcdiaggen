@@ -16,20 +16,32 @@
 # this file. If not, see <https://www.gnu.org/licenses/>.
 
 """
-tree2svg.py - render a WBS-style (PlantUML) tree description directly to SVG,
+tree2svg.py - render an OPC UA type-system tree description directly to SVG,
 with a merged trunk line per parent and a proper hollow UML inheritance
 triangle - computed exactly from the layout, not reverse-engineered from
 someone else's renderer.
 
-Input syntax (same as PlantUML's @startwbs, and a valid .puml file works
-unmodified as input - @start/@end and skinparam lines are simply ignored):
+Input syntax uses @starttypesystem/@endtypesystem markers. Node lines use
+PlantUML WBS-style depth markers followed by an optional node class:
 
-    * 0:BaseObjectType
-    ** 5:STCompType
-    *** STCompRamType
-    *** STCompHeaterType
-    ** 5:STSysType
-    *** STSysRamType
+    @starttypesystem
+    * objtype "BaseObjectType"
+    ** objtype "STCompType"
+    *** objtype "STCompRamType"
+    *** objtype "STCompHeaterType"
+    @endtypesystem
+
+Supported node classes are obj, objtype, var, vartype, method, reftype,
+datatype, and view. Labels must be quoted. An optional reference type can be
+written before the node class; otherwise it is inferred from both classes:
+
+    * obj "Boiler #1"
+    ** hasTypeDefinition objtype "BoilerType"
+    *** hasProperty var "Pressure [Double]"
+
+The supported reference types are inheritance, hasTypeDefinition,
+hasComponent, and hasProperty. In a type-system graph, an omitted node class
+defaults to objtype.
 
 Node shadows can be disabled with `skinparam shadowing false`,
 `skinparam nodeShadowing false`, or `Shadowing false` inside a
@@ -72,13 +84,24 @@ TRI_W, TRI_H = 7, 7     # inheritance triangle size in the reference export
 
 # --- 1. parse ----------------------------------------------------------------
 
+REFERENCE_TYPES = {
+    "inheritance": "inheritance",
+    "hastypedefinition": "hasTypeDefinition",
+    "hascomponent": "hasComponent",
+    "hasproperty": "hasProperty",
+}
+NODE_CLASSES = {"obj", "objtype", "var", "vartype", "method", "reftype", "datatype", "view"}
+
+
 class Node:
-    __slots__ = ("label", "children", "x", "y", "w", "h", "cx", "cy",
+    __slots__ = ("label", "nodeclass", "reference_type", "children", "x", "y", "w", "h", "cx", "cy",
                  "bottom", "subtree_bottom", "subtree_left", "subtree_right",
                  "node_shadow", "style")
 
-    def __init__(self, label):
+    def __init__(self, label, nodeclass="objtype", reference_type=None):
         self.label = label
+        self.nodeclass = nodeclass
+        self.reference_type = reference_type
         self.children = []
         self.x = self.y = self.w = self.h = 0.0
         self.cx = self.cy = self.bottom = 0.0
@@ -164,8 +187,21 @@ def parse(text):
         if not m:
             continue
         depth = len(m.group(1))
-        label = m.group(2).strip()
-        node = Node(label)
+        content = m.group(2).strip()
+        tokens = content.split(None, 2)
+        explicit_reference = None
+        if tokens and tokens[0].lower() in REFERENCE_TYPES:
+            explicit_reference = REFERENCE_TYPES[tokens.pop(0).lower()]
+        if tokens and tokens[0].lower() in NODE_CLASSES:
+            nodeclass = tokens.pop(0).lower()
+        else:
+            nodeclass = "objtype"
+        label_text = " ".join(tokens)
+        label_match = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', label_text)
+        if not label_match:
+            raise ValueError(f"node label must be quoted near: {stripped!r}")
+        label = label_match.group(1).replace(r'\"', '"').replace(r'\\', '\\')
+        node = Node(label, nodeclass, explicit_reference)
         if depth == 1:
             root = node
             stack = [(1, node)]
@@ -176,6 +212,8 @@ def parse(text):
         if not stack:
             raise ValueError(f"malformed nesting near: {stripped!r}")
         parent = stack[-1][1]
+        if node.reference_type is None:
+            node.reference_type = infer_reference_type(parent.nodeclass, node.nodeclass)
         parent.children.append(node)
         stack.append((depth, node))
     if root is None:
@@ -183,6 +221,19 @@ def parse(text):
     root.node_shadow = node_shadow
     root.style = style
     return root
+
+
+def infer_reference_type(source_class, destination_class):
+    """Infer the common OPC UA reference for a parent-child edge."""
+    if source_class == "obj" and destination_class == "objtype":
+        return "hasTypeDefinition"
+    if source_class == "obj" and destination_class == "obj":
+        return "hasComponent"
+    if source_class == "obj" and destination_class in ("var", "vartype"):
+        return "hasProperty"
+    if source_class in ("obj", "objtype") and destination_class in ("var", "vartype"):
+        return "hasProperty"
+    return "inheritance"
 
 
 # --- 2. layout ----------------------------------------------------------------
@@ -274,15 +325,54 @@ def layout(root):
 
 # --- 3. render ----------------------------------------------------------------
 
+SHADOWED_CLASSES = {"objtype", "vartype", "reftype", "datatype"}
+ITALIC_CLASSES = {"objtype", "vartype", "reftype", "datatype"}
+
+
+def node_points(node):
+    """Return polygon points for non-rectangular OPC UA node classes."""
+    x, y, w, h = node.x, node.y, node.w, node.h
+    if node.nodeclass in ("datatype", "reftype"):
+        points = ((x + 10, y), (x + w - 10, y), (x + w, y + h / 2),
+                  (x + w - 10, y + h), (x + 10, y + h), (x, y + h / 2))
+    elif node.nodeclass == "view":
+        points = ((x + 10, y), (x + w - 10, y), (x + w, y + h),
+                  (x, y + h))
+    else:
+        return None
+    return " ".join(f"{px:.0f},{py:.0f}" for px, py in points)
+
+
 def render_node_svg(node, style, shadow=True):
     parts = []
+    shadow = shadow and node.nodeclass in SHADOWED_CLASSES
     filter_attr = ' filter="url(#node-shadow)"' if shadow else ""
     parts.append(f'<g{filter_attr}>')
-    parts.append(
-        f'<rect x="{node.x:.0f}" y="{node.y:.0f}" width="{node.w:.0f}" '
-        f'height="{node.h:.0f}" fill="{html.escape(style["fill"], quote=True)}" '
-        f'stroke="{html.escape(style["stroke"], quote=True)}" pointer-events="all"/>'
-    )
+    fill = html.escape(style["fill"], quote=True)
+    stroke = html.escape(style["stroke"], quote=True)
+    if node.nodeclass in ("var", "vartype"):
+        parts.append(
+            f'<rect x="{node.x:.0f}" y="{node.y:.0f}" width="{node.w:.0f}" '
+            f'height="{node.h:.0f}" rx="8" fill="{fill}" stroke="{stroke}" '
+            'pointer-events="all"/>'
+        )
+    elif node.nodeclass == "method":
+        parts.append(
+            f'<ellipse cx="{node.cx:.0f}" cy="{node.cy:.0f}" '
+            f'rx="{node.w / 2:.0f}" ry="{node.h / 2:.0f}" fill="{fill}" '
+            f'stroke="{stroke}" pointer-events="all"/>'
+        )
+    elif (points := node_points(node)) is not None:
+        parts.append(
+            f'<polygon points="{points}" fill="{fill}" stroke="{stroke}" '
+            'pointer-events="all"/>'
+        )
+    else:
+        parts.append(
+            f'<rect x="{node.x:.0f}" y="{node.y:.0f}" width="{node.w:.0f}" '
+            f'height="{node.h:.0f}" fill="{fill}" stroke="{stroke}" '
+            'pointer-events="all"/>'
+        )
     parts.append('</g>')
     text_x = node.cx
     text_y = node.cy + FONT_SIZE * 0.35
@@ -290,9 +380,19 @@ def render_node_svg(node, style, shadow=True):
     parts.append(
         f'<text x="{text_x:.0f}" y="{text_y:.0f}" text-anchor="middle" '
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="{FONT_SIZE}" '
-        f'font-style="italic" fill="{html.escape(style["text"], quote=True)}">{label}</text>'
+        f'font-style="{"italic" if node.nodeclass in ITALIC_CLASSES else "normal"}" '
+        f'fill="{html.escape(style["text"], quote=True)}">{label}</text>'
     )
     return parts
+
+
+def reference_marker(node):
+    """Return the SVG marker name for a non-inheritance reference."""
+    return {
+        "hasTypeDefinition": "has-type-definition",
+        "hasComponent": "has-component",
+        "hasProperty": "has-property",
+    }.get(node.reference_type)
 
 
 def render_connectors_svg(node, style, triangles=True):
@@ -312,14 +412,16 @@ def render_connectors_svg(node, style, triangles=True):
         f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
     )
     for child in node.children:
+        marker = reference_marker(child)
+        marker_attr = f' marker-end="url(#{marker})"' if marker else ""
         parts.append(
             f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
             f'x2="{(child.x + child.w if child.x < trunk_x else child.x):.0f}" '
             f'y2="{child.cy:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
-            f'stroke-width="1"/>'
+            f'stroke-width="1"{marker_attr}/>'
         )
 
-    if triangles:
+    if triangles and any(child.reference_type == "inheritance" for child in node.children):
         apex = (trunk_x, node.bottom + 1.12)
         bl = (trunk_x - TRI_W / 2, node.bottom + TRI_H + 1.12)
         br = (trunk_x + TRI_W / 2, node.bottom + TRI_H + 1.12)
@@ -354,13 +456,16 @@ def render_root_connectors_svg(root, style, triangles=True):
         f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
     )
     for child in root.children:
+        marker = reference_marker(child)
+        marker_attr = f' marker-end="url(#{marker})"' if marker else ""
         parts.append(
             f'<line x1="{child.cx:.0f}" y1="{bus_y:.0f}" '
             f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
-            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+            f'{marker_attr}/>'
         )
 
-    if triangles:
+    if triangles and any(child.reference_type == "inheritance" for child in root.children):
         apex = (root.cx, root.bottom + 1.12)
         bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
         br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
@@ -371,6 +476,30 @@ def render_root_connectors_svg(root, style, triangles=True):
         )
 
     return parts
+
+
+def render_defs(shadow):
+    parts = ["<defs>"]
+    if shadow:
+        parts.append(
+            '<filter id="node-shadow" x="-20%" y="-20%" width="150%" height="150%">'
+            '<feDropShadow dx="4" dy="5" stdDeviation="1.5" flood-color="#000000" '
+            'flood-opacity="0.5"/></filter>'
+        )
+    parts.extend((
+        '<marker id="has-type-definition" viewBox="0 0 10 8" markerWidth="10" '
+        'markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L5,4 L0,8 Z M5,0 L10,4 L5,8 Z" fill="context-stroke"/></marker>',
+        '<marker id="has-component" viewBox="0 0 4 8" markerWidth="4" '
+        'markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M3,0 L3,8" fill="none" stroke="context-stroke" stroke-width="1"/></marker>',
+        '<marker id="has-property" viewBox="0 0 7 8" markerWidth="7" '
+        'markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M2,0 L2,8 M5,0 L5,8" fill="none" stroke="context-stroke" '
+        'stroke-width="1"/></marker>',
+    ))
+    parts.append("</defs>")
+    return "".join(parts)
 
 
 def to_svg(root, triangles=True):
@@ -395,9 +524,7 @@ def to_svg(root, triangles=True):
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{W}px" height="{H}px" '
         f'viewBox="-0.5 -0.5 {W} {H}">\n'
-        + ('<defs><filter id="node-shadow" x="-20%" y="-20%" width="150%" height="150%">'
-           '<feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000000" '
-           'flood-opacity="0.25"/></filter></defs>\n' if root.node_shadow else '<defs/>\n')
+        + render_defs(root.node_shadow) + '\n'
         + '<g>\n'
         + "\n".join(nodes + connectors) +
         '\n</g>\n</svg>\n'
@@ -409,7 +536,7 @@ def to_svg(root, triangles=True):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("infile", help="input file, PlantUML '*'-depth WBS syntax")
+    ap.add_argument("infile", help="input type-system file with '*'-depth nodes")
     ap.add_argument("-o", "--outfile", help="output SVG path (default: <infile>.svg)")
     ap.add_argument("--no-triangles", action="store_true", help="plain tree lines, no UML inheritance triangles")
     args = ap.parse_args()

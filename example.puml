@@ -1,7 +1,7 @@
 ' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
 ' SPDX-License-Identifier: MIT
 
-@startwbs
+@starttypesystem
 skinparam backgroundColor transparent
 skinparam ArrowColor #078249
 skinparam node {
@@ -11,23 +11,13 @@ skinparam node {
   FontName Helvetica
 }
 
-* QWidget
-** QButton
-*** QRadioButton
-*** QToolButton
-*** QCheckBox
-*** QPushButton
-** QDialog
-*** QColorDialog
-*** QErrorMessage
-*** QFileDialog
-**** MyFileOpenDialog
-**** MyFileSaveDialog
-*** QFontDialog
-*** QInputDialog
-*** QMessageBox
-**** MyCustomMessageBox
-** QWindow
-*** QMainWindow
-*** QToolWindow
-@endwbs
+* objtype "BoilerType"
+** obj "Boiler #1"
+*** var "Pressure [Double]"
+*** var "Temperature [Float]"
+*** var "Flow [Double] Optional"
+** hasComponent obj "Boiler #2"
+*** hasProperty var "Pressure 1500.00"
+*** hasProperty var "Temperature 260."
+*** hasProperty var "Flow 20.34"
+@endtypesystem

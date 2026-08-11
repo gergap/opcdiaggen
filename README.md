@@ -22,10 +22,10 @@ Specification.
 
 ### A More Complex Demo
 
-This diagram is unrelated to OPC UA but demonstrates color customization. It has
-more than two vertical columns and more deeply nested subtypes.
+This diagram shows a BoilerType and two instances to get a more complex
+collaboration diagram.
 
-![Qt Example](example.png)
+![BoilerType Example](example.png)
 
 ## Installation
 
@@ -85,16 +85,26 @@ mirrored.
 
 ## Input
 
-The input uses PlantUML WBS syntax:
+The input uses a type-system section with PlantUML WBS-style depth markers. Each
+node may start with one of the supported node classes: `obj`, `objtype`, `var`,
+`vartype`, `method`, `reftype`, `datatype`, or `view`. If the class is omitted,
+it defaults to `objtype`.
+
+When the reference type is omitted, it is inferred as follows: an object to an
+object type uses `hasTypeDefinition`, an object to an object uses
+`hasComponent`, an object or object type to a variable uses `hasProperty`, and
+all other relationships use inheritance. Put an explicit reference type before
+the node class when a different relationship is required.
 
 ```text
-@startwbs
-* Root
-** Left branch
-*** Leaf
-** Right branch
-*** Leaf
-@endwbs
+@starttypesystem
+* objtype "Root"
+** obj "Branch"
+*** var "Leaf"
+** vartype "Another branch"
+*** datatype "Another leaf"
+** method "A method"
+@endtypesystem
 ```
 
 Node styling is read from the relevant `skinparam` settings. Node shadows are

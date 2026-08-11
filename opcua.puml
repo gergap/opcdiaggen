@@ -1,7 +1,7 @@
 ' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
 ' SPDX-License-Identifier: GPL-3.0-only
 
-@startwbs
+@starttypesystem
 skinparam backgroundColor transparent
 skinparam ArrowColor #4a6fa5
 skinparam node {
@@ -11,16 +11,16 @@ skinparam node {
   FontName Helvetica
 }
 
-* 0:BaseObjectType
-** 5:STCompType
-*** STCompRamType
-*** STCompPowderVibrationType
-*** STCompPowderSieveType
-*** STCompProcessValveType
-*** STCompStirrerType
-*** STCompHeaterType
-** 5:STSysType
-*** STSysMaterialTransportLineType
-*** STSysRamType
-*** STSysVesselType
-@endwbs
+* "BaseObjectType"
+** "STCompType"
+*** "STCompRamType"
+*** "STCompPowderVibrationType"
+*** "STCompPowderSieveType"
+*** "STCompProcessValveType"
+*** "STCompStirrerType"
+*** "STCompHeaterType"
+** "STSysType"
+*** "STSysMaterialTransportLineType"
+*** "STSysRamType"
+*** "STSysVesselType"
+@endtypesystem
