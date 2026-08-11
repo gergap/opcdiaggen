@@ -71,7 +71,7 @@ ROW_GAP = 20            # 40px node + 20px between leaf rows
 PARENT_GAP = 42
 MIN_HORIZONTAL_LENGTH = 40
 MIN_SPACING = 20
-ORGANIZES_SPACING = 0
+ORGANIZES_SPACING = -20
 MAX_GROUPS_PER_ROW = 2
 CANVAS_W, CANVAS_H = 837, 550
 FILL = "#e6ecf7"
@@ -283,8 +283,7 @@ def layout(root):
                 child_y = child.subtree_bottom + MIN_SPACING
 
         if organizes:
-            child_x = max(node.x + node.w + MIN_SPACING,
-                          node.cx + MIN_HORIZONTAL_LENGTH)
+            child_x = node.x + node.w + ORGANIZES_SPACING
             child_y = node.subtree_bottom + MIN_SPACING
             for child in organizes:
                 place(child, child_x, child_y)
