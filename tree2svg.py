@@ -86,8 +86,9 @@ REFERENCE_TYPES = {
     "hastypedefinition": "hasTypeDefinition",
     "hascomponent": "hasComponent",
     "hasproperty": "hasProperty",
+    "organizes": "Organizes",
 }
-REFERENCE_ORDER = ("hasTypeDefinition", "hasProperty", "hasComponent", "inheritance")
+REFERENCE_ORDER = ("hasTypeDefinition", "hasProperty", "hasComponent", "Organizes", "inheritance")
 NODE_CLASSES = {"obj", "objtype", "var", "vartype", "method", "reftype", "datatype", "view"}
 
 
@@ -266,12 +267,25 @@ def layout(root):
         set_box(node, x, y)
         aggregate = [child for child in node.children
                      if child.reference_type in ("hasProperty", "hasComponent")]
-        structural = [child for child in node.children if child not in aggregate]
+        organizes = [child for child in node.children
+                     if child.reference_type == "Organizes"]
+        structural = [child for child in node.children
+                      if child not in aggregate and child not in organizes]
 
         if aggregate:
             child_x = node.x + node.w + MIN_SPACING
             child_y = node.bottom + MIN_SPACING
             for child in aggregate:
+                place(child, child_x, child_y)
+                node.subtree_right = max(node.subtree_right, child.subtree_right)
+                node.subtree_bottom = max(node.subtree_bottom, child.subtree_bottom)
+                child_y = child.subtree_bottom + MIN_SPACING
+
+        if organizes:
+            child_x = max(node.x + node.w + MIN_SPACING,
+                          node.cx + MIN_HORIZONTAL_LENGTH)
+            child_y = node.subtree_bottom + MIN_SPACING
+            for child in organizes:
                 place(child, child_x, child_y)
                 node.subtree_right = max(node.subtree_right, child.subtree_right)
                 node.subtree_bottom = max(node.subtree_bottom, child.subtree_bottom)
@@ -652,6 +666,22 @@ def render_root_connectors_svg(root, style, triangles=True):
         return parts
 
     reference_type_groups = reference_groups(root.children)
+    if (len(reference_type_groups) == 1
+            and reference_type_groups[0][0].reference_type == "Organizes"):
+        children = reference_type_groups[0]
+        trunk_x = reference_anchors(root, reference_type_groups)[0]
+        parts.append(
+            f'<line x1="{trunk_x:.0f}" y1="{source_y:.2f}" '
+            f'x2="{trunk_x:.0f}" y2="{max(child.cy for child in children):.0f}" '
+            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+        )
+        for child in children:
+            parts.append(
+                f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
+                f'x2="{child.x:.0f}" y2="{child.cy:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+            )
+        return parts
     if len(reference_type_groups) > 1 and len({child.branch_group for child in root.children}) == 1:
         anchors = reference_anchors(root, reference_type_groups)
         for index, children in enumerate(reference_type_groups):
