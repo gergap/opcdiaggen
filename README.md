@@ -101,12 +101,11 @@ the node class when a different relationship is required.
 
 ```text
 @starttypesystem
-* objtype "Root"
-** obj "Branch"
-*** var "Leaf"
-** vartype "Another branch"
-*** datatype "Another leaf"
-** method "A method"
+* obj "Root"
+** Organizes obj "Objects"
+*** Organizes var "Temperature"
+** Organizes obj "Types"
+** Organizes obj "Views"
 @endtypesystem
 ```
 
