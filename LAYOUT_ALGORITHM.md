@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
 # Layout Algorithm
 
 ## Base Constraints
