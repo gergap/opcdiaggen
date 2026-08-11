@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
 # OPC UA Diagram Generator
 
 This repository renders the OPC UA type hierarchies as SVG file. The input is
@@ -104,3 +107,9 @@ skinparam node {
 ```
 
 Use `--no-triangles` with `tree2svg.py` to omit UML inheritance triangles.
+
+## License
+
+The renderer is licensed under the GNU General Public License, version 3 only.
+The example diagram and its generated files are licensed under the MIT License.
+See [LICENSE](LICENSE) and [LICENSES](LICENSES) for the complete license texts.

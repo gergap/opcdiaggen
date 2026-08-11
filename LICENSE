@@ -1,0 +1,14 @@
+This repository contains files under different licenses:
+
+* The renderer and supporting project files are licensed under the GNU General
+  Public License, version 3 only.
+* The example diagram and its generated files are licensed under the MIT
+  License.
+
+The complete license texts are available in the `LICENSES/` directory:
+
+* `LICENSES/GPL-3.0-only.txt`
+* `LICENSES/MIT.txt`
+
+See the SPDX headers in individual files, and their `.license` sidecar files
+where applicable, to determine the license for each file.

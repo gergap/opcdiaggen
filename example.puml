@@ -1,3 +1,6 @@
+' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
+' SPDX-License-Identifier: MIT
+
 @startwbs
 skinparam backgroundColor transparent
 skinparam ArrowColor #078249
