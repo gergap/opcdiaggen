@@ -2,7 +2,6 @@
 ' SPDX-License-Identifier: GPL-3.0-only
 
 @starttypesystem
-skinparam backgroundColor transparent
 skinparam ArrowColor #4a6fa5
 skinparam node {
   BackgroundColor #e6ecf7
