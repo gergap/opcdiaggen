@@ -71,6 +71,7 @@ ROW_GAP = 20            # 40px node + 20px between leaf rows
 PARENT_GAP = 42
 MIN_HORIZONTAL_LENGTH = 40
 MIN_SPACING = 20
+ORGANIZES_SPACING = 0
 MAX_GROUPS_PER_ROW = 2
 CANVAS_W, CANVAS_H = 837, 550
 FILL = "#e6ecf7"
@@ -409,6 +410,7 @@ def reference_marker(node):
     return {
         "hasComponent": "has-component",
         "hasProperty": "has-property",
+        "Organizes": "organizes",
     }.get(node.reference_type)
 
 
@@ -437,6 +439,23 @@ def reference_groups(children):
     for child in children:
         groups.setdefault(child.reference_type, []).append(child)
     return sorted(groups.values(), key=lambda group: REFERENCE_ORDER.index(group[0].reference_type))
+
+
+def reference_label_svg(x1, y1, x2, y2, reference_type, style):
+    """Render the label required for non-standard reference types."""
+    if reference_type != "Organizes":
+        return ""
+    if y1 == y2:
+        x, y = (x1 + x2) / 2, y1 - 4
+        anchor = "middle"
+    else:
+        x, y = x1 + 4, (y1 + y2) / 2
+        anchor = "start"
+    return (
+        f'<text x="{x:.0f}" y="{y:.0f}" text-anchor="{anchor}" '
+        f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
+        f'fill="{html.escape(style["text"], quote=True)}">Organizes</text>'
+    )
 
 
 def reference_anchors(node, groups):
@@ -514,6 +533,11 @@ def render_connectors_svg(node, style, triangles=True):
                 f'y2="{target_y:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
                 f'stroke-width="1"{marker_attr}/>'
             )
+            parts.append(reference_label_svg(
+                trunk_x, target_y,
+                child.x + child.w if child.x < trunk_x else child.x,
+                target_y, child.reference_type, style
+            ))
 
     if triangles and any(child.reference_type == "inheritance" for child in node.children):
         apex = (trunk_x, node.bottom + 1.12)
@@ -676,11 +700,18 @@ def render_root_connectors_svg(root, style, triangles=True):
             f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
         )
         for child in children:
+            marker = reference_marker(child)
+            marker_attr = f' marker-end="url(#{marker})"' if marker else ""
             parts.append(
                 f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
                 f'x2="{child.x:.0f}" y2="{child.cy:.0f}" '
-                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                f'{marker_attr}/>'
             )
+            parts.append(reference_label_svg(
+                trunk_x, child.cy, child.x, child.cy,
+                child.reference_type, style
+            ))
         return parts
     if len(reference_type_groups) > 1 and len({child.branch_group for child in root.children}) == 1:
         anchors = reference_anchors(root, reference_type_groups)
@@ -815,6 +846,10 @@ def render_defs():
         '<marker id="has-property" viewBox="0 0 7 8" markerWidth="7" '
         'markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
         '<path d="M2,0 L2,8 M5,0 L5,8" fill="none" stroke="context-stroke" '
+        'stroke-width="1"/></marker>',
+        '<marker id="organizes" viewBox="0 0 10 8" markerWidth="10" '
+        'markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L10,4 L0,8" fill="none" stroke="context-stroke" '
         'stroke-width="1"/></marker>',
     ))
     parts.append("</defs>")
