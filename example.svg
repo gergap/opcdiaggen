@@ -25,15 +25,15 @@
 <g>
 <rect x="254" y="324" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="348" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Pressure [Double]</text>
+<text x="369" y="348" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Pressure 1500.00</text>
 <g>
 <rect x="254" y="384" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="408" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Temperature [Float]</text>
+<text x="369" y="408" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Temperature 260.</text>
 <g>
 <rect x="254" y="444" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="468" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Flow [Double] Optional</text>
+<text x="369" y="468" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Flow 20.34</text>
 <g>
 <rect x="504" y="264" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
@@ -41,15 +41,11 @@
 <g>
 <rect x="754" y="324" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="869" y="348" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Pressure 1500.00</text>
+<text x="869" y="348" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Pressure 1769.00</text>
 <g>
 <rect x="754" y="384" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="869" y="408" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Temperature 260.</text>
-<g>
-<rect x="754" y="444" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
-</g>
-<text x="869" y="468" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Flow 20.34</text>
+<text x="869" y="408" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000">Temperature 233.</text>
 <line x1="532" y1="44.00" x2="532" y2="204" stroke="#4a6fa5" stroke-width="1"/>
 <line x1="532" y1="84" x2="629" y2="84" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 <line x1="532" y1="144" x2="629" y2="144" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
@@ -63,9 +59,8 @@
 <line x1="119" y1="344" x2="254" y2="344" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 <line x1="119" y1="404" x2="254" y2="404" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 <line x1="119" y1="464" x2="254" y2="464" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
-<line x1="619" y1="304.00" x2="619" y2="464" stroke="#4a6fa5" stroke-width="1"/>
+<line x1="619" y1="304.00" x2="619" y2="404" stroke="#4a6fa5" stroke-width="1"/>
 <line x1="619" y1="344" x2="754" y2="344" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 <line x1="619" y1="404" x2="754" y2="404" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
-<line x1="619" y1="464" x2="754" y2="464" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 </g>
 </svg>

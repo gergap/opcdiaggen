@@ -16,11 +16,11 @@ Standard tools like Graphviz, PlantUML, and Mermaid are not able to render the
 OPC UA type hierarchies with the layout and style required by the OPC
 Specification.
 
-### A Typical OPC UA Example
+### A Typical OPC UA Type Hierarchy
 
 ![OPC UA Example](opcua.png)
 
-### A More Complex Demo
+### An OPC UA Collaboration Diagram
 
 This diagram shows a BoilerType and two instances to get a more complex
 collaboration diagram.

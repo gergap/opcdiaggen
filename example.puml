@@ -10,12 +10,12 @@ skinparam backgroundColor #ff0000
 *** var "Flow [Double] Optional"
 
 ** obj "Boiler #1"
-*** var "Pressure [Double]"
-*** var "Temperature [Float]"
-*** var "Flow [Double] Optional"
-
-** obj "Boiler #2"
 *** hasProperty var "Pressure 1500.00"
 *** hasProperty var "Temperature 260."
 *** hasProperty var "Flow 20.34"
+
+** obj "Boiler #2"
+*** hasProperty var "Pressure 1769.00"
+*** hasProperty var "Temperature 233."
+
 @endtypesystem
