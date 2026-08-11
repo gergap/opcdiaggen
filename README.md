@@ -1,0 +1,106 @@
+# OPC UA Diagram Generator
+
+This repository renders the OPC UA type hierarchies as SVG file. The input is
+simple text file inspired by PlantUML WBS input, but the code does not use
+PlantUML. It is pure Python and does not require Java or a PlantUML JAR.
+
+`rsvg-convert` is required only for PNG generation. It converts the generated
+SVG into a raster PNG and preserves SVG filters such as node shadows.
+
+## Why ?
+
+Standard tools like Graphviz, PlantUML, and Mermaid are not able to render the
+OPC UA type hierarchies with the layout and style required by the OPC Specification.
+
+### A Typical OPC UA Example
+
+![OPC UA Example](opcua.png)
+
+### A More Complex Demo
+
+This diagram is unrelated to OPC UA but demonstrates the customization of colors,
+and has more than two vertical columns and more nested subtypes.
+
+![Qt Example](example.png)
+
+## Installation
+
+On Debian or Ubuntu, install it with:
+
+```sh
+sudo apt install librsvg2-bin
+```
+
+On Fedora:
+
+```sh
+sudo dnf install librsvg2-tools
+```
+
+On Windows using WSL, install a Linux distribution such as Ubuntu through
+WSL, then run the Debian/Ubuntu command inside the WSL terminal:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+After restarting WSL:
+
+```sh
+sudo apt update
+sudo apt install python3 librsvg2-bin make
+```
+
+## Usage
+
+Render one diagram directly:
+
+```sh
+./tree2svg.py opcua.puml -o opcua.svg
+```
+
+The bundled Makefile demonstrates who you can easily build multiple diagrams
+from source. GNU Make also ensures only diagrams with modified input get regenerated.
+
+```sh
+make
+```
+
+Other targets:
+
+```sh
+make svg       # generate SVG files
+make png       # generate *.png files
+make clean     # remove generated files
+```
+
+The renderer supports arbitrary hierarchy depth. Branches grow outward
+from the root, siblings are stacked vertically, and left/right connectors are
+mirrored.
+
+## Input
+
+The input uses PlantUML WBS syntax:
+
+```text
+@startwbs
+* Root
+** Left branch
+*** Leaf
+** Right branch
+*** Leaf
+@endwbs
+```
+
+Node styling is read from the relevant `skinparam` settings. Node shadows are
+enabled by default and can be disabled with any of these forms:
+
+```text
+skinparam shadowing false
+skinparam nodeShadowing false
+skinparam node {
+  Shadowing false
+}
+```
+
+Use `--no-triangles` with `tree2svg.py` to omit UML inheritance triangles.

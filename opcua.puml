@@ -1,0 +1,23 @@
+@startwbs
+skinparam backgroundColor transparent
+skinparam ArrowColor #4a6fa5
+skinparam node {
+  BackgroundColor #e6ecf7
+  BorderColor #4a6fa5
+  FontColor black
+  FontName Helvetica
+}
+
+* 0:BaseObjectType
+** 5:STCompType
+*** STCompRamType
+*** STCompPowderVibrationType
+*** STCompPowderSieveType
+*** STCompProcessValveType
+*** STCompStirrerType
+*** STCompHeaterType
+** 5:STSysType
+*** STSysMaterialTransportLineType
+*** STSysRamType
+*** STSysVesselType
+@endwbs
