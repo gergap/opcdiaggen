@@ -3,17 +3,18 @@
 
 # OPC UA Diagram Generator
 
-This repository renders the OPC UA type hierarchies as SVG file. The input is
+This repository renders OPC UA type hierarchies as SVG files. The input is a
 simple text file inspired by PlantUML WBS input, but the code does not use
 PlantUML. It is pure Python and does not require Java or a PlantUML JAR.
 
 `rsvg-convert` is required only for PNG generation. It converts the generated
 SVG into a raster PNG and preserves SVG filters such as node shadows.
 
-## Why ?
+## Why?
 
 Standard tools like Graphviz, PlantUML, and Mermaid are not able to render the
-OPC UA type hierarchies with the layout and style required by the OPC Specification.
+OPC UA type hierarchies with the layout and style required by the OPC
+Specification.
 
 ### A Typical OPC UA Example
 
@@ -21,14 +22,14 @@ OPC UA type hierarchies with the layout and style required by the OPC Specificat
 
 ### A More Complex Demo
 
-This diagram is unrelated to OPC UA but demonstrates the customization of colors,
-and has more than two vertical columns and more nested subtypes.
+This diagram is unrelated to OPC UA but demonstrates color customization. It has
+more than two vertical columns and more deeply nested subtypes.
 
 ![Qt Example](example.png)
 
 ## Installation
 
-On Debian or Ubuntu, install it with:
+On Debian or Ubuntu, install the required tool with:
 
 ```sh
 sudo apt install librsvg2-bin
@@ -40,8 +41,8 @@ On Fedora:
 sudo dnf install librsvg2-tools
 ```
 
-On Windows using WSL, install a Linux distribution such as Ubuntu through
-WSL, then run the Debian/Ubuntu command inside the WSL terminal:
+On Windows with WSL, install a Linux distribution such as Ubuntu through WSL,
+then run the Debian/Ubuntu commands inside the WSL terminal:
 
 ```powershell
 wsl --install -d Ubuntu
@@ -62,8 +63,9 @@ Render one diagram directly:
 ./tree2svg.py opcua.puml -o opcua.svg
 ```
 
-The bundled Makefile demonstrates who you can easily build multiple diagrams
-from source. GNU Make also ensures only diagrams with modified input get regenerated.
+The bundled Makefile demonstrates how to build multiple diagrams easily from
+source. GNU Make also ensures that only diagrams whose input has changed are
+regenerated.
 
 ```sh
 make
