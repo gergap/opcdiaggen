@@ -12,14 +12,18 @@ skinparam node {
 }
 
 * "BaseObjectType"
+
 ** "STCompType"
+
 *** "STCompRamType"
 *** "STCompPowderVibrationType"
 *** "STCompPowderSieveType"
 *** "STCompProcessValveType"
 *** "STCompStirrerType"
 *** "STCompHeaterType"
+
 ** "STSysType"
+
 *** "STSysMaterialTransportLineType"
 *** "STSysRamType"
 *** "STSysVesselType"

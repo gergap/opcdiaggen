@@ -90,6 +90,9 @@ node may start with one of the supported node classes: `obj`, `objtype`, `var`,
 `vartype`, `method`, `reftype`, `datatype`, or `view`. If the class is omitted,
 it defaults to `objtype`.
 
+Blank lines between root-level groups separate columns. Nodes in the same group
+are stacked vertically in that column.
+
 When the reference type is omitted, it is inferred as follows: an object to an
 object type uses `hasTypeDefinition`, an object to an object uses
 `hasComponent`, an object or object type to a variable uses `hasProperty`, and

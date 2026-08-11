@@ -73,6 +73,9 @@ PARENT_Y = 122
 LEAF_Y = 202
 ROW_GAP = 20            # 40px node + 20px between leaf rows
 PARENT_GAP = 42
+MIN_HORIZONTAL_LENGTH = 40
+MIN_SPACING = 20
+MAX_GROUPS_PER_ROW = 2
 CANVAS_W, CANVAS_H = 837, 550
 NODE_SHADOW_DEFAULT = True
 
@@ -90,22 +93,24 @@ REFERENCE_TYPES = {
     "hascomponent": "hasComponent",
     "hasproperty": "hasProperty",
 }
+REFERENCE_ORDER = ("hasTypeDefinition", "hasProperty", "hasComponent", "inheritance")
 NODE_CLASSES = {"obj", "objtype", "var", "vartype", "method", "reftype", "datatype", "view"}
 
 
 class Node:
-    __slots__ = ("label", "nodeclass", "reference_type", "children", "x", "y", "w", "h", "cx", "cy",
-                 "bottom", "subtree_bottom", "subtree_left", "subtree_right",
+    __slots__ = ("label", "nodeclass", "reference_type", "branch_group", "children", "x", "y", "w", "h", "cx", "cy",
+                 "bottom", "subtree_top", "subtree_bottom", "subtree_left", "subtree_right",
                  "node_shadow", "style")
 
-    def __init__(self, label, nodeclass="objtype", reference_type=None):
+    def __init__(self, label, nodeclass="objtype", reference_type=None, branch_group=0):
         self.label = label
         self.nodeclass = nodeclass
         self.reference_type = reference_type
+        self.branch_group = branch_group
         self.children = []
         self.x = self.y = self.w = self.h = 0.0
         self.cx = self.cy = self.bottom = 0.0
-        self.subtree_bottom = self.subtree_left = self.subtree_right = 0.0
+        self.subtree_top = self.subtree_bottom = self.subtree_left = self.subtree_right = 0.0
         self.node_shadow = NODE_SHADOW_DEFAULT
         self.style = {
             "fill": FILL,
@@ -129,10 +134,14 @@ def parse(text):
         "arrow": STROKE,
     }
     in_node_skinparam = False
+    branch_group = 0
+    pending_group_break = False
     for raw in text.splitlines():
         line = raw.rstrip()
         stripped = line.strip()
         if not stripped:
+            if root is not None:
+                pending_group_break = True
             continue
         if stripped.startswith("@"):
             continue
@@ -201,7 +210,7 @@ def parse(text):
         if not label_match:
             raise ValueError(f"node label must be quoted near: {stripped!r}")
         label = label_match.group(1).replace(r'\"', '"').replace(r'\\', '\\')
-        node = Node(label, nodeclass, explicit_reference)
+        node = Node(label, nodeclass, explicit_reference, branch_group)
         if depth == 1:
             root = node
             stack = [(1, node)]
@@ -212,6 +221,13 @@ def parse(text):
         if not stack:
             raise ValueError(f"malformed nesting near: {stripped!r}")
         parent = stack[-1][1]
+        if parent is root:
+            if pending_group_break and root.children:
+                branch_group += 1
+            node.branch_group = branch_group
+        else:
+            node.branch_group = parent.branch_group
+        pending_group_break = False
         if node.reference_type is None:
             node.reference_type = infer_reference_type(parent.nodeclass, node.nodeclass)
         parent.children.append(node)
@@ -224,8 +240,12 @@ def parse(text):
 
 
 def infer_reference_type(source_class, destination_class):
-    """Infer the common OPC UA reference for a parent-child edge."""
-    if source_class == "obj" and destination_class == "objtype":
+    """Infer the common OPC UA reference for a parent-child edge.
+
+    The tree edge is stored on the child, so an object below an object type
+    points back to its type with HasTypeDefinition.
+    """
+    if source_class == "objtype" and destination_class == "obj":
         return "hasTypeDefinition"
     if source_class == "obj" and destination_class == "obj":
         return "hasComponent"
@@ -244,63 +264,73 @@ def set_box(node, x, y):
     node.x, node.y = x, y
     node.cx, node.cy = x + BOX_W / 2, y + BOX_H / 2
     node.bottom = y + BOX_H
+    node.subtree_top = y
     node.subtree_left = x
     node.subtree_right = x + BOX_W
     node.subtree_bottom = node.bottom
 
 
 def layout(root):
-    """Lay out a rooted tree with outward-growing, vertically stacked branches.
-
-    The two-branch case retains the reference OPC UA coordinates. For deeper
-    trees, each descendant is placed one column farther outward and its
-    siblings are allocated enough vertical space for their complete subtree.
-    """
+    """Lay out aggregate members first, then subtype and instance groups."""
     set_box(root, ROOT_X, ROOT_Y)
 
-    def place_branch(node, x, y, direction):
-        """Place node and recursively place children in the outward column."""
-        set_box(node, x, y)
-        node.subtree_left = node.x
-        node.subtree_right = node.x + node.w
-        node.subtree_bottom = node.bottom
-        if not node.children:
-            return
-
-        child_x = node.x - 164 if direction < 0 else node.x + 160
-        child_y = node.bottom + 40
+    def translate(node, dx, dy):
+        node.x += dx
+        node.y += dy
+        node.cx += dx
+        node.cy += dy
+        node.bottom += dy
+        node.subtree_top += dy
+        node.subtree_bottom += dy
+        node.subtree_left += dx
+        node.subtree_right += dx
         for child in node.children:
-            place_branch(child, child_x, child_y, direction)
-            node.subtree_left = min(node.subtree_left, child.subtree_left)
-            node.subtree_right = max(node.subtree_right, child.subtree_right)
-            node.subtree_bottom = max(node.subtree_bottom, child.subtree_bottom)
-            child_y = child.subtree_bottom + ROW_GAP
+            translate(child, dx, dy)
 
-    if len(root.children) == 2:
-        # These offsets produce x=168/440 and preserve the reference image.
-        branch_positions = ((ROOT_X - 130, -1), (ROOT_X + 142, 1))
-    else:
-        # A right-facing descendant reaches 275px beyond its parent's center
-        # at depth one. Increase the column spacing for every further level so
-        # the next branch's vertical trunk cannot cross that node.
-        def depth(node):
-            return 0 if not node.children else 1 + max(depth(c) for c in node.children)
+    def place(node, x, y):
+        """Place one subtree and return its bounding-box dimensions."""
+        set_box(node, x, y)
+        aggregate = [child for child in node.children
+                     if child.reference_type in ("hasProperty", "hasComponent")]
+        structural = [child for child in node.children if child not in aggregate]
 
-        right_depth = max((depth(child) for child in root.children), default=0)
-        spacing = max(BOX_W + PARENT_GAP, 120 + right_depth * 160)
-        # Keep arbitrary root fan-outs centered around the root.
-        first_center = root.cx - (len(root.children) - 1) * spacing / 2
-        branch_positions = [
-            (first_center + i * spacing - BOX_W / 2,
-             -1 if first_center + i * spacing < root.cx else 1)
-            for i in range(len(root.children))
-        ]
+        if aggregate:
+            child_x = node.x + node.w + MIN_SPACING
+            child_y = node.bottom + MIN_SPACING
+            for child in aggregate:
+                place(child, child_x, child_y)
+                node.subtree_right = max(node.subtree_right, child.subtree_right)
+                node.subtree_bottom = max(node.subtree_bottom, child.subtree_bottom)
+                child_y = child.subtree_bottom + MIN_SPACING
 
-    for child, (x, direction) in zip(root.children, branch_positions):
-        place_branch(child, x, PARENT_Y, direction)
-        root.subtree_left = min(root.subtree_left, child.subtree_left)
-        root.subtree_right = max(root.subtree_right, child.subtree_right)
-        root.subtree_bottom = max(root.subtree_bottom, child.subtree_bottom)
+        if structural:
+            prepared = []
+            for child in structural:
+                place(child, 0, 0)
+                prepared.append((child, child.subtree_right - child.subtree_left,
+                                 child.subtree_bottom - child.subtree_top))
+
+            for row_start in range(0, len(prepared), MAX_GROUPS_PER_ROW):
+                row = prepared[row_start:row_start + MAX_GROUPS_PER_ROW]
+                row_width = sum(item[1] for item in row) + MIN_SPACING * (len(row) - 1)
+                row_x = node.cx - row_width / 2
+                edge_clearance = 2 * MIN_SPACING
+                if any(child.reference_type == "inheritance" for child, _, _ in row):
+                    edge_clearance += TRI_H + 1.12
+                row_y = node.subtree_bottom + edge_clearance
+                row_height = max(item[2] for item in row)
+                for child, child_width, _ in row:
+                    translate(child, row_x - child.subtree_left, row_y - child.subtree_top)
+                    node.subtree_left = min(node.subtree_left, child.subtree_left)
+                    node.subtree_right = max(node.subtree_right, child.subtree_right)
+                    node.subtree_bottom = max(node.subtree_bottom, child.subtree_bottom)
+                    row_x += child_width + MIN_SPACING
+                node.subtree_bottom = max(node.subtree_bottom, row_y + row_height)
+
+        return (node.subtree_right - node.subtree_left,
+                node.subtree_bottom - node.subtree_top)
+
+    place(root, ROOT_X, ROOT_Y)
 
     all_nodes = []
     def collect(node):
@@ -389,10 +419,43 @@ def render_node_svg(node, style, shadow=True):
 def reference_marker(node):
     """Return the SVG marker name for a non-inheritance reference."""
     return {
-        "hasTypeDefinition": "has-type-definition",
         "hasComponent": "has-component",
         "hasProperty": "has-property",
     }.get(node.reference_type)
+
+
+def reference_start_marker(children):
+    """Return a marker placed at the source for HasTypeDefinition."""
+    if any(child.reference_type == "hasTypeDefinition" for child in children):
+        return "has-type-definition"
+    return None
+
+
+def reference_target_y(child):
+    """Use the node top for type-oriented edges; others meet its center."""
+    return child.y if child.reference_type in ("hasTypeDefinition", "inheritance") else child.cy
+
+
+def connector_start_y(node, children):
+    """Leave room for the inheritance triangle only when one is rendered."""
+    if any(child.reference_type == "inheritance" for child in children):
+        return node.bottom + TRI_H + 1.12
+    return node.bottom
+
+
+def reference_groups(children):
+    """Group children by reference type while preserving first-seen order."""
+    groups = {}
+    for child in children:
+        groups.setdefault(child.reference_type, []).append(child)
+    return sorted(groups.values(), key=lambda group: REFERENCE_ORDER.index(group[0].reference_type))
+
+
+def reference_anchors(node, groups):
+    """Place one trunk anchor at each separation of the source bottom edge."""
+    count = len(groups)
+    return [node.x + (index + 1) * node.w / (count + 1)
+            for index in range(count)]
 
 
 def render_connectors_svg(node, style, triangles=True):
@@ -403,23 +466,66 @@ def render_connectors_svg(node, style, triangles=True):
     if not node.children:
         return parts
 
-    trunk_x = node.cx
-    last_cy = node.children[-1].cy
-    start_y = node.bottom + TRI_H + 1.12
-    parts.append(
-        f'<line x1="{trunk_x:.0f}" y1="{start_y:.2f}" '
-        f'x2="{trunk_x:.0f}" y2="{last_cy:.0f}" '
-        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
-    )
-    for child in node.children:
-        marker = reference_marker(child)
-        marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+    groups = reference_groups(node.children)
+    for children, trunk_x in zip(groups, reference_anchors(node, groups)):
+        start_y = connector_start_y(node, children)
+        start_marker = reference_start_marker(children)
+        start_marker_attr = f' marker-start="url(#{start_marker})"' if start_marker else ""
+        if children[0].reference_type == "inheritance":
+            approach_ys = {child: child.y - MIN_SPACING for child in children}
+            trunk_end_y = max(approach_ys.values())
+            parts.append(
+                f'<line x1="{trunk_x:.0f}" y1="{start_y:.2f}" '
+                f'x2="{trunk_x:.0f}" y2="{trunk_end_y:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                f'{start_marker_attr}/>'
+            )
+            for child in children:
+                approach_y = approach_ys[child]
+                parts.append(
+                    f'<line x1="{trunk_x:.0f}" y1="{approach_y:.0f}" '
+                    f'x2="{child.cx:.0f}" y2="{approach_y:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                )
+                parts.append(
+                    f'<line x1="{child.cx:.0f}" y1="{approach_y:.0f}" '
+                    f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                )
+            continue
+
+        last_cy = max(reference_target_y(child) for child in children)
         parts.append(
-            f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
-            f'x2="{(child.x + child.w if child.x < trunk_x else child.x):.0f}" '
-            f'y2="{child.cy:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
-            f'stroke-width="1"{marker_attr}/>'
+            f'<line x1="{trunk_x:.0f}" y1="{start_y:.2f}" '
+            f'x2="{trunk_x:.0f}" y2="{last_cy:.0f}" '
+            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+            f'{start_marker_attr}/>'
         )
+        if children[0].reference_type == "inheritance":
+            approach_y = min(child.y for child in children) - MIN_SPACING
+            parts.append(
+                f'<line x1="{min(trunk_x, min(child.cx for child in children)):.0f}" '
+                f'y1="{approach_y:.0f}" x2="{max(trunk_x, max(child.cx for child in children)):.0f}" '
+                f'y2="{approach_y:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
+                'stroke-width="1"/>'
+            )
+            for child in children:
+                parts.append(
+                    f'<line x1="{child.cx:.0f}" y1="{approach_y:.0f}" '
+                    f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                )
+            continue
+        for child in children:
+            marker = reference_marker(child)
+            marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+            target_y = reference_target_y(child)
+            parts.append(
+                f'<line x1="{trunk_x:.0f}" y1="{target_y:.0f}" '
+                f'x2="{(child.x + child.w if child.x < trunk_x else child.x):.0f}" '
+                f'y2="{target_y:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
+                f'stroke-width="1"{marker_attr}/>'
+            )
 
     if triangles and any(child.reference_type == "inheritance" for child in node.children):
         apex = (trunk_x, node.bottom + 1.12)
@@ -443,27 +549,237 @@ def render_root_connectors_svg(root, style, triangles=True):
 
     parts = []
     bus_y = 83
+    source_y = connector_start_y(root, root.children)
+    branch_groups = {}
+    for child in root.children:
+        branch_groups.setdefault(child.branch_group, []).append(child)
+    if len(branch_groups) > 1:
+        root_reference_groups = reference_groups(root.children)
+        root_anchors = reference_anchors(root, root_reference_groups)
+        routed_groups = []
+        for children in root_reference_groups:
+            first = children[0]
+            direction = 1 if first.cx >= root.cx else -1
+            if first.reference_type == "inheritance":
+                trunk_x = root_anchors[len(routed_groups)]
+            else:
+                trunk_x = first.x - 20 if direction > 0 else first.x + first.w + 20
+            routed_groups.append((children, trunk_x))
+
+        property_routes = [(group, trunk_x, root_anchors[index])
+                           for index, (group, trunk_x) in enumerate(routed_groups)
+                           if group[0].reference_type == "hasProperty"]
+        structural_routes = [(group, trunk_x, root_anchors[index])
+                             for index, (group, trunk_x) in enumerate(routed_groups)
+                             if group[0].reference_type != "hasProperty"]
+        for children, _, route_x in property_routes:
+            parts.append(
+                f'<line x1="{route_x:.0f}" y1="{source_y:.2f}" '
+                f'x2="{route_x:.0f}" y2="{max(child.cy for child in children):.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+            )
+            for child in children:
+                marker = reference_marker(child)
+                marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+                edge_x = child.x if child.x >= route_x else child.x + child.w
+                parts.append(
+                    f'<line x1="{route_x:.0f}" y1="{child.cy:.0f}" '
+                    f'x2="{edge_x:.0f}" y2="{child.cy:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                    f'{marker_attr}/>'
+                )
+        if structural_routes:
+            property_bottom = max(
+                (child.bottom for children, _, _ in property_routes for child in children),
+                default=root.bottom,
+            )
+            branch_bus_y = property_bottom + 20
+            for children, trunk_x, route_x in structural_routes:
+                if children[0].reference_type == "hasTypeDefinition":
+                    approach_ys = {child: child.y - MIN_SPACING for child in children}
+                    branch_bus_y = max(approach_ys.values())
+                    parts.append(
+                        f'<line x1="{route_x:.0f}" y1="{source_y:.2f}" '
+                        f'x2="{route_x:.0f}" y2="{branch_bus_y:.0f}" '
+                        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                        ' marker-start="url(#has-type-definition)"/>'
+                    )
+                    for child in children:
+                        approach_y = approach_ys[child]
+                        parts.append(
+                            f'<line x1="{route_x:.0f}" y1="{approach_y:.0f}" '
+                            f'x2="{child.cx:.0f}" y2="{approach_y:.0f}" '
+                            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                        )
+                        parts.append(
+                            f'<line x1="{child.cx:.0f}" y1="{approach_y:.0f}" '
+                            f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                        )
+                    continue
+                elif children[0].reference_type == "inheritance":
+                    approach_ys = {child: child.y - MIN_SPACING for child in children}
+                    branch_bus_y = max(approach_ys.values())
+                    parts.append(
+                        f'<line x1="{route_x:.0f}" y1="{source_y:.2f}" '
+                        f'x2="{route_x:.0f}" y2="{branch_bus_y:.0f}" '
+                        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                    )
+                    for child in children:
+                        approach_y = approach_ys[child]
+                        parts.append(
+                            f'<line x1="{route_x:.0f}" y1="{approach_y:.0f}" '
+                            f'x2="{child.cx:.0f}" y2="{approach_y:.0f}" '
+                            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                        )
+                        parts.append(
+                            f'<line x1="{child.cx:.0f}" y1="{approach_y:.0f}" '
+                            f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                        )
+                    continue
+                else:
+                    parts.append(
+             f'<line x1="{route_x:.0f}" y1="{source_y:.2f}" '
+                        f'x2="{route_x:.0f}" y2="{branch_bus_y:.0f}" '
+                        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                    )
+                    route_start_y = branch_bus_y
+                parts.append(
+                    f'<line x1="{route_x:.0f}" y1="{route_start_y:.0f}" '
+                    f'x2="{trunk_x:.0f}" y2="{route_start_y:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                )
+                parts.append(
+                    f'<line x1="{trunk_x:.0f}" y1="{route_start_y:.0f}" '
+                    f'x2="{trunk_x:.0f}" y2="{max(reference_target_y(child) for child in children):.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+                )
+                for child in children:
+                    marker = reference_marker(child)
+                    marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+                    target_y = reference_target_y(child)
+                    edge_x = child.x if child.x >= trunk_x else child.x + child.w
+                    parts.append(
+                        f'<line x1="{trunk_x:.0f}" y1="{target_y:.0f}" '
+                        f'x2="{edge_x:.0f}" y2="{target_y:.0f}" '
+                        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                        f'{marker_attr}/>'
+                    )
+        if triangles and any(child.reference_type == "inheritance" for child in root.children):
+            apex = (root.cx, root.bottom + 1.12)
+            bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
+            br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
+            pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
+            parts.append(
+                f'<polygon points="{pts}" fill="white" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
+            )
+        return parts
+
+    reference_type_groups = reference_groups(root.children)
+    if len(reference_type_groups) > 1 and len({child.branch_group for child in root.children}) == 1:
+        anchors = reference_anchors(root, reference_type_groups)
+        for index, children in enumerate(reference_type_groups):
+            current_bus_y = bus_y + index * 12
+            anchor = anchors[index]
+            start_marker = reference_start_marker(children)
+            start_marker_attr = f' marker-start="url(#{start_marker})"' if start_marker else ""
+            parts.append(
+                f'<line x1="{anchor:.0f}" y1="{source_y:.2f}" '
+                f'x2="{anchor:.0f}" y2="{current_bus_y:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                f'{start_marker_attr}/>'
+            )
+            xs = [child.cx for child in children]
+            parts.append(
+                f'<line x1="{min(xs):.0f}" y1="{current_bus_y:.0f}" '
+                f'x2="{max(xs):.0f}" y2="{current_bus_y:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+            )
+            for child in children:
+                marker = reference_marker(child)
+                marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+                parts.append(
+                    f'<line x1="{child.cx:.0f}" y1="{current_bus_y:.0f}" '
+                    f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                    f'{marker_attr}/>'
+                )
+        if triangles and any(child.reference_type == "inheritance" for child in root.children):
+            apex = (root.cx, root.bottom + 1.12)
+            bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
+            br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
+            pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
+            parts.append(
+                f'<polygon points="{pts}" fill="white" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
+            )
+        return parts
+
     # stub from root down to the bus
+    start_marker = reference_start_marker(root.children)
+    start_marker_attr = f' marker-start="url(#{start_marker})"' if start_marker else ""
     parts.append(
-        f'<line x1="{root.cx:.0f}" y1="{root.bottom + TRI_H + 1.12:.2f}" '
+        f'<line x1="{root.cx:.0f}" y1="{source_y:.2f}" '
         f'x2="{root.cx:.0f}" y2="{bus_y:.0f}" '
-        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+        f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+        f'{start_marker_attr}/>'
     )
-    xs = [c.cx for c in root.children]
+    groups = {}
+    for child in root.children:
+        groups.setdefault(child.branch_group, []).append(child)
+    grouped_columns = len(groups) > 1
+    group_trunks = []
+    if grouped_columns:
+        for column in groups.values():
+            ref_groups = reference_groups(column)
+            offsets = [0] if len(ref_groups) == 1 else [
+                (index - (len(ref_groups) - 1) / 2) * 12
+                for index in range(len(ref_groups))
+            ]
+            for children, offset in zip(ref_groups, offsets):
+                child = children[0]
+                direction = 1 if child.cx >= root.cx else -1
+                trunk_x = child.x - 20 if direction > 0 else child.x + child.w + 20
+                group_trunks.append((trunk_x + offset, children))
+    else:
+        group_trunks = [(child.cx, [child]) for child in root.children]
+
+    xs = [trunk_x for trunk_x, _ in group_trunks] if grouped_columns else [c.cx for c in root.children]
     parts.append(
         f'<line x1="{min(xs):.0f}" y1="{bus_y:.0f}" '
         f'x2="{max(xs):.0f}" y2="{bus_y:.0f}" '
         f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
     )
-    for child in root.children:
-        marker = reference_marker(child)
-        marker_attr = f' marker-end="url(#{marker})"' if marker else ""
-        parts.append(
-            f'<line x1="{child.cx:.0f}" y1="{bus_y:.0f}" '
-            f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
-            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
-            f'{marker_attr}/>'
-        )
+    for trunk_x, children in group_trunks:
+        if grouped_columns:
+            parts.append(
+                f'<line x1="{trunk_x:.0f}" y1="{bus_y:.0f}" '
+                f'x2="{trunk_x:.0f}" y2="{children[-1].cy:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"/>'
+            )
+            direction = 1 if children[0].cx >= root.cx else -1
+            for child in children:
+                marker = reference_marker(child)
+                marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+                edge_x = child.x if direction > 0 else child.x + child.w
+                parts.append(
+                    f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
+                    f'x2="{edge_x:.0f}" y2="{child.cy:.0f}" '
+                    f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                    f'{marker_attr}/>'
+                )
+        else:
+            child = children[0]
+            marker = reference_marker(child)
+            marker_attr = f' marker-end="url(#{marker})"' if marker else ""
+            parts.append(
+                f'<line x1="{child.cx:.0f}" y1="{bus_y:.0f}" '
+                f'x2="{child.cx:.0f}" y2="{child.y:.0f}" '
+                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
+                f'{marker_attr}/>'
+            )
 
     if triangles and any(child.reference_type == "inheritance" for child in root.children):
         apex = (root.cx, root.bottom + 1.12)
@@ -488,7 +804,7 @@ def render_defs(shadow):
         )
     parts.extend((
         '<marker id="has-type-definition" viewBox="0 0 10 8" markerWidth="10" '
-        'markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+        'markerHeight="8" refX="10" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse">'
         '<path d="M0,0 L5,4 L0,8 Z M5,0 L10,4 L5,8 Z" fill="context-stroke"/></marker>',
         '<marker id="has-component" viewBox="0 0 4 8" markerWidth="4" '
         'markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="userSpaceOnUse">'

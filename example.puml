@@ -2,21 +2,19 @@
 ' SPDX-License-Identifier: MIT
 
 @starttypesystem
-skinparam backgroundColor transparent
-skinparam ArrowColor #078249
-skinparam node {
-  BackgroundColor #caebdc
-  BorderColor #198754
-  FontColor #098724
-  FontName Helvetica
-}
+skinparam backgroundColor #ff0000
 
 * objtype "BoilerType"
+*** var "Pressure [Double]"
+*** var "Temperature [Float]"
+*** var "Flow [Double] Optional"
+
 ** obj "Boiler #1"
 *** var "Pressure [Double]"
 *** var "Temperature [Float]"
 *** var "Flow [Double] Optional"
-** hasComponent obj "Boiler #2"
+
+** obj "Boiler #2"
 *** hasProperty var "Pressure 1500.00"
 *** hasProperty var "Temperature 260."
 *** hasProperty var "Flow 20.34"
