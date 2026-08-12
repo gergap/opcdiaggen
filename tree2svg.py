@@ -62,7 +62,7 @@ import sys
 
 FONT_SIZE = 12
 FONT_FAMILY = "Helvetica"
-BOX_W = 230             # The reference uses the same width for every node.
+MIN_BOX_W = 230
 BOX_H = 40
 ROOT_X, ROOT_Y = 298, 4
 PARENT_Y = 122
@@ -126,6 +126,7 @@ def parse(text):
         "text": TEXT_COLOR,
         "font": FONT_FAMILY,
         "arrow": STROKE,
+        "min_width": MIN_BOX_W,
     }
     in_node_skinparam = False
     branch_group = 0
@@ -163,6 +164,15 @@ def parse(text):
                 continue
             if node_setting and key in ("fontname", "fontfamily"):
                 style["font"] = value
+                continue
+            if node_setting and key in ("minwidth", "width"):
+                try:
+                    min_width = float(value)
+                except ValueError as exc:
+                    raise ValueError(f"node minimum width must be numeric: {value!r}") from exc
+                if min_width <= 0:
+                    raise ValueError(f"node minimum width must be positive: {value!r}")
+                style["min_width"] = min_width
                 continue
             if key in ("arrowcolor", "linecolor"):
                 style["arrow"] = value
@@ -237,21 +247,36 @@ def infer_reference_type(source_class, destination_class):
 
 # --- 2. layout ----------------------------------------------------------------
 
-def set_box(node, x, y):
-    node.w = BOX_W
+def label_width(label):
+    """Estimate the rendered width of the widest label line in pixels."""
+    widest = 0.0
+    for line in label.split("\n"):
+        width = 0.0
+        for part in re.split(r"(\^[0-9]+)", line):
+            if re.fullmatch(r"\^[0-9]+", part):
+                width += len(part[1:]) * FONT_SIZE * 0.6 * 0.7
+            else:
+                width += len(part) * FONT_SIZE * 0.6
+        widest = max(widest, width)
+    return widest
+
+
+def set_box(node, x, y, min_width):
+    node.w = max(min_width, label_width(node.label) + FONT_SIZE * 2)
     node.h = BOX_H
     node.x, node.y = x, y
-    node.cx, node.cy = x + BOX_W / 2, y + BOX_H / 2
+    node.cx, node.cy = x + node.w / 2, y + BOX_H / 2
     node.bottom = y + BOX_H
     node.subtree_top = y
     node.subtree_left = x
-    node.subtree_right = x + BOX_W
+    node.subtree_right = x + node.w
     node.subtree_bottom = node.bottom
 
 
 def layout(root):
     """Lay out aggregate members first, then subtype and instance groups."""
-    set_box(root, ROOT_X, ROOT_Y)
+    min_width = root.style["min_width"]
+    set_box(root, ROOT_X, ROOT_Y, min_width)
 
     def translate(node, dx, dy):
         node.x += dx
@@ -268,7 +293,7 @@ def layout(root):
 
     def place(node, x, y):
         """Place one subtree and return its bounding-box dimensions."""
-        set_box(node, x, y)
+        set_box(node, x, y, min_width)
         aggregate = [child for child in node.children
                      if child.reference_type in ("hasProperty", "hasComponent")]
         organizes = [child for child in node.children

@@ -114,6 +114,10 @@ Node styling is read from the relevant `skinparam` settings. Shadows are
 mandatory for type nodes and are not configurable; instance nodes do not have
 shadows.
 
+The minimum node width defaults to 230 pixels and can be changed with
+`skinparam nodeMinWidth 180`. Nodes expand beyond that width when their labels
+need more space.
+
 Use `--no-triangles` with `tree2svg.py` to omit UML inheritance triangles.
 
 ## License

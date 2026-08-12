@@ -2,6 +2,7 @@
 ' SPDX-License-Identifier: MIT
 
 @starttypesystem
+skinparam nodeMinWidth 180
 
 * objtype "BoilerType"
 *** var "Pressure\n[Double]"
