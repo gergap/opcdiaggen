@@ -30,23 +30,33 @@ collaboration diagram.
 
 ## Installation
 
-On Debian or Ubuntu, install the required tool with:
+Python 3 is required to render SVG files. `rsvg-convert` is additionally
+required only for PNG generation. On Debian or Ubuntu, install both with:
 
 ```sh
-sudo apt install librsvg2-bin
+sudo apt install python3 librsvg2-bin
 ```
 
 On Fedora:
 
 ```sh
-sudo dnf install librsvg2-tools
+sudo dnf install python3 librsvg2-tools
 ```
 
-On Windows with WSL, install a Linux distribution such as Ubuntu through WSL,
-then run the Debian/Ubuntu commands inside the WSL terminal:
+On Windows, Python can be installed with WinGet from PowerShell:
 
 ```powershell
-wsl --install -d Ubuntu
+winget install -e --id Python.Python.3.11
+```
+
+The Python renderer does not require PlantUML, Java, or GNU Make. PNG output
+additionally requires `rsvg-convert`. On Windows, the simplest way to use
+`rsvg-convert` and the bundled Makefile is through WSL. Install Debian from an
+elevated PowerShell prompt, then run the Debian commands inside the WSL
+terminal:
+
+```powershell
+wsl --install -d Debian
 ```
 
 After restarting WSL:
@@ -56,12 +66,20 @@ sudo apt update
 sudo apt install python3 librsvg2-bin make
 ```
 
+You can use the Linux instructions below now also on Windows inside WSL.
+
 ## Usage
 
-Render one diagram directly:
+Render one diagram directly in a Linux shell:
 
 ```sh
 ./tree2svg.py opcua.puml -o opcua.svg
+```
+
+On Windows using PowerShell, you can use it like this:
+
+```powershell
+python tree2svg.py opcua.puml -o opcua.svg
 ```
 
 The bundled Makefile demonstrates how to build multiple diagrams easily from
