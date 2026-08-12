@@ -186,7 +186,10 @@ def parse(text):
         label_match = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', label_text)
         if not label_match:
             raise ValueError(f"node label must be quoted near: {stripped!r}")
-        label = label_match.group(1).replace(r'\"', '"').replace(r'\\', '\\')
+        label = (label_match.group(1)
+                 .replace(r'\n', '\n')
+                 .replace(r'\"', '"')
+                 .replace(r'\\', '\\'))
         node = Node(label, nodeclass, explicit_reference, branch_group)
         if depth == 1:
             root = node
@@ -393,13 +396,18 @@ def render_node_svg(node, style):
         )
     parts.append('</g>')
     text_x = node.cx
-    text_y = node.cy + FONT_SIZE * 0.35
-    label = html.escape(node.label)
+    label_lines = [html.escape(line) for line in node.label.split("\n")]
+    line_height = FONT_SIZE * 1.2
+    first_line_y = node.cy + FONT_SIZE * 0.35 - (len(label_lines) - 1) * line_height / 2
+    tspans = [
+        f'<tspan x="{text_x:.0f}" dy="{0 if index == 0 else line_height:.1f}">{line}</tspan>'
+        for index, line in enumerate(label_lines)
+    ]
     parts.append(
-        f'<text x="{text_x:.0f}" y="{text_y:.0f}" text-anchor="middle" '
+        f'<text x="{text_x:.0f}" y="{first_line_y:.1f}" text-anchor="middle" '
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="{FONT_SIZE}" '
         f'font-style="{"italic" if node.nodeclass in ITALIC_CLASSES else "normal"}" '
-        f'fill="{html.escape(style["text"], quote=True)}">{label}</text>'
+        f'fill="{html.escape(style["text"], quote=True)}">{"".join(tspans)}</text>'
     )
     return parts
 

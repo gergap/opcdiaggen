@@ -4,17 +4,17 @@
 @starttypesystem
 
 * objtype "BoilerType"
-*** var "Pressure [Double]"
-*** var "Temperature [Float]"
-*** var "Flow [Double] Optional"
+*** var "Pressure\n[Double]"
+*** var "Temperature\n[Float]"
+*** var "Flow [Double]\nOptional"
 
 ** obj "Boiler #1"
-*** hasProperty var "Pressure 1500.00"
-*** hasProperty var "Temperature 260."
-*** hasProperty var "Flow 20.34"
+*** hasProperty var "Pressure\n1500.00"
+*** hasProperty var "Temperature\n260"
+*** hasProperty var "Flow\n20.34"
 
 ** obj "Boiler #2"
-*** hasProperty var "Pressure 1769.00"
-*** hasProperty var "Temperature 233."
+*** hasProperty var "Pressure\n1769.00"
+*** hasProperty var "Temperature\n233"
 
 @endtypesystem

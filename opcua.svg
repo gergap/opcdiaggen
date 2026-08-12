@@ -5,51 +5,51 @@
 <g filter="url(#node-shadow)">
 <rect x="379" y="4" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="494" y="28" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">BaseObjectType</text>
+<text x="494" y="28.2" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="494" dy="0.0">BaseObjectType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="129" y="92" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="244" y="116" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompType</text>
+<text x="244" y="116.3" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="244" dy="0.0">STCompType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="4" y="180" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="119" y="204" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompRamType</text>
+<text x="119" y="204.4" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="119" dy="0.0">STCompRamType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="254" y="180" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="204" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompPowderVibrationType</text>
+<text x="369" y="204.4" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="369" dy="0.0">STCompPowderVibrationType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="4" y="268" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="119" y="293" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompPowderSieveType</text>
+<text x="119" y="292.6" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="119" dy="0.0">STCompPowderSieveType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="254" y="268" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="293" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompProcessValveType</text>
+<text x="369" y="292.6" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="369" dy="0.0">STCompProcessValveType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="4" y="356" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="119" y="381" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompStirrerType</text>
+<text x="119" y="380.7" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="119" dy="0.0">STCompStirrerType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="254" y="356" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="381" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STCompHeaterType</text>
+<text x="369" y="380.7" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="369" dy="0.0">STCompHeaterType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="629" y="92" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="744" y="116" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STSysType</text>
+<text x="744" y="116.3" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="744" dy="0.0">STSysType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="504" y="180" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="619" y="204" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STSysMaterialTransportLineType</text>
+<text x="619" y="204.4" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="619" dy="0.0">STSysMaterialTransportLineType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="754" y="180" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="869" y="204" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STSysRamType</text>
+<text x="869" y="204.4" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="869" dy="0.0">STSysRamType</tspan></text>
 <g filter="url(#node-shadow)">
 <rect x="629" y="268" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="744" y="293" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black">STSysVesselType</text>
+<text x="744" y="292.6" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="italic" fill="black"><tspan x="744" dy="0.0">STSysVesselType</tspan></text>
 <line x1="494" y1="52.12" x2="494" y2="72" stroke="#4a6fa5" stroke-width="1"/>
 <line x1="494" y1="72" x2="244" y2="72" stroke="#4a6fa5" stroke-width="1"/>
 <line x1="244" y1="72" x2="244" y2="92" stroke="#4a6fa5" stroke-width="1"/>
