@@ -118,6 +118,13 @@ The minimum node width defaults to 230 pixels and can be changed with
 `skinparam nodeMinWidth 180`. Nodes expand beyond that width when their labels
 need more space.
 
+Instance nodes use a white-to-gray gradient and type nodes use `#e8eef7` by
+default. These colors can be customized with `InstanceFill`, `InstanceFillEnd`,
+and `TypeFill` inside `skinparam node { ... }`.
+
+Line and border thickness defaults to 1.3 and can be changed with
+`skinparam nodeStrokeWidth 2`.
+
 ## License
 
 The renderer is licensed under the GNU General Public License, version 3 only.

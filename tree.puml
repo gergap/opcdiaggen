@@ -2,6 +2,8 @@
 ' SPDX-License-Identifier: MIT
 
 @starttypesystem
+skinparam nodeMinWidth 150
+
 * obj "Root"
 ** Organizes obj "Objects"
 *** Organizes var "Temperature"

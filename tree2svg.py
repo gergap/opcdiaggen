@@ -74,9 +74,12 @@ ORGANIZES_SPACING = -20
 MAX_GROUPS_PER_ROW = 2
 CANVAS_W, CANVAS_H = 837, 550
 FILL = "#e6ecf7"
-STROKE = "#4a6fa5"
+STROKE = "#404040"
 TEXT_COLOR = "#000000"
 TRI_W, TRI_H = 7, 7     # inheritance triangle size in the reference export
+TRI_GAP = 1.12
+REFERENCE_MARKER_GAP = 6
+STROKE_WIDTH = 1.3
 
 
 # --- 1. parse ----------------------------------------------------------------
@@ -121,10 +124,14 @@ def parse(text):
     root = None
     style = {
         "fill": FILL,
+        "instance_fill_start": "#ffffff",
+        "instance_fill_end": "#f0f0f0",
+        "type_fill": "#e8eef7",
         "stroke": STROKE,
         "text": TEXT_COLOR,
         "font": FONT_FAMILY,
         "arrow": STROKE,
+        "stroke_width": STROKE_WIDTH,
         "min_width": MIN_BOX_W,
     }
     in_node_skinparam = False
@@ -153,10 +160,28 @@ def parse(text):
             if key.startswith("node"):
                 key = key[4:]
             if node_setting and key in ("backgroundcolor", "fill"):
-                style["fill"] = value
+                style["type_fill"] = value
+                continue
+            if node_setting and key in ("instancebackgroundcolor", "instancefill"):
+                style["instance_fill_start"] = value
+                continue
+            if node_setting and key in ("instancebackgroundcolorend", "instancefillend"):
+                style["instance_fill_end"] = value
+                continue
+            if node_setting and key in ("typebackgroundcolor", "typefill"):
+                style["type_fill"] = value
                 continue
             if node_setting and key in ("bordercolor", "stroke"):
                 style["stroke"] = value
+                continue
+            if node_setting and key in ("strokewidth", "linewidth"):
+                try:
+                    stroke_width = float(value)
+                except ValueError as exc:
+                    raise ValueError(f"stroke width must be numeric: {value!r}") from exc
+                if stroke_width <= 0:
+                    raise ValueError(f"stroke width must be positive: {value!r}")
+                style["stroke_width"] = stroke_width
                 continue
             if node_setting and key in ("fontcolor", "textcolor"):
                 style["text"] = value
@@ -331,7 +356,7 @@ def layout(root):
                 row_x = node.cx - row_width / 2
                 edge_clearance = 2 * MIN_SPACING
                 if any(child.reference_type == "inheritance" for child, _, _ in row):
-                    edge_clearance += TRI_H + 1.12
+                    edge_clearance += TRI_H * 2 + TRI_GAP
                 row_y = node.subtree_bottom + edge_clearance
                 row_height = max(item[2] for item in row)
                 for child, child_width, _ in row:
@@ -393,29 +418,32 @@ def render_node_svg(node, style):
     shadow = node.nodeclass in SHADOWED_CLASSES
     filter_attr = ' filter="url(#node-shadow)"' if shadow else ""
     parts.append(f'<g{filter_attr}>')
-    fill = html.escape(style["fill"], quote=True)
+    fill = "url(#instance-fill)" if node.nodeclass in ("obj", "var", "method", "view") else html.escape(style["type_fill"], quote=True)
     stroke = html.escape(style["stroke"], quote=True)
     if node.nodeclass in ("var", "vartype"):
         parts.append(
             f'<rect x="{node.x:.0f}" y="{node.y:.0f}" width="{node.w:.0f}" '
             f'height="{node.h:.0f}" rx="8" fill="{fill}" stroke="{stroke}" '
+            f'stroke-width="{style["stroke_width"]:g}" '
             'pointer-events="all"/>'
         )
     elif node.nodeclass == "method":
         parts.append(
             f'<ellipse cx="{node.cx:.0f}" cy="{node.cy:.0f}" '
             f'rx="{node.w / 2:.0f}" ry="{node.h / 2:.0f}" fill="{fill}" '
-            f'stroke="{stroke}" pointer-events="all"/>'
+            f'stroke="{stroke}" stroke-width="{style["stroke_width"]:g}" pointer-events="all"/>'
         )
     elif (points := node_points(node)) is not None:
         parts.append(
             f'<polygon points="{points}" fill="{fill}" stroke="{stroke}" '
+            f'stroke-width="{style["stroke_width"]:g}" '
             'pointer-events="all"/>'
         )
     else:
         parts.append(
             f'<rect x="{node.x:.0f}" y="{node.y:.0f}" width="{node.w:.0f}" '
             f'height="{node.h:.0f}" fill="{fill}" stroke="{stroke}" '
+            f'stroke-width="{style["stroke_width"]:g}" '
             'pointer-events="all"/>'
         )
     parts.append('</g>')
@@ -456,6 +484,26 @@ def reference_marker(node):
     }.get(node.reference_type)
 
 
+def reference_edge_x(child, source_x):
+    """Return the node boundary where the connector must end."""
+    return child.x if child.x >= source_x else child.x + child.w
+
+
+def inheritance_triangle(x, y, style):
+    """Render the two empty triangles used for HasSubType."""
+    stroke = html.escape(style["arrow"], quote=True)
+    parts = []
+    for offset in (0, TRI_H + TRI_GAP):
+        apex = (x, y + offset)
+        bl = (x - TRI_W / 2, y + TRI_H + offset)
+        br = (x + TRI_W / 2, y + TRI_H + offset)
+        points = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
+        parts.append(
+            f'<polygon points="{points}" fill="white" stroke="{stroke}" stroke-width="{style["stroke_width"] * 1.5:g}"/>'
+        )
+    return parts
+
+
 def reference_start_marker(children):
     """Return a marker placed at the source for HasTypeDefinition."""
     if any(child.reference_type == "hasTypeDefinition" for child in children):
@@ -471,7 +519,7 @@ def reference_target_y(child):
 def connector_start_y(node, children):
     """Leave room for the inheritance triangle only when one is rendered."""
     if any(child.reference_type == "inheritance" for child in children):
-        return node.bottom + TRI_H + 1.12
+        return node.bottom + TRI_H * 2 + TRI_GAP
     return node.bottom
 
 
@@ -569,25 +617,18 @@ def render_connectors_svg(node, style):
             target_y = reference_target_y(child)
             parts.append(
                 f'<line x1="{trunk_x:.0f}" y1="{target_y:.0f}" '
-                f'x2="{(child.x + child.w if child.x < trunk_x else child.x):.0f}" '
+                f'x2="{reference_edge_x(child, trunk_x):.0f}" '
                 f'y2="{target_y:.0f}" stroke="{html.escape(style["arrow"], quote=True)}" '
                 f'stroke-width="1"{marker_attr}/>'
             )
             parts.append(reference_label_svg(
                 trunk_x, target_y,
-                child.x + child.w if child.x < trunk_x else child.x,
+                reference_edge_x(child, trunk_x),
                 target_y, child.reference_type, style
             ))
 
     if any(child.reference_type == "inheritance" for child in node.children):
-        apex = (trunk_x, node.bottom + 1.12)
-        bl = (trunk_x - TRI_W / 2, node.bottom + TRI_H + 1.12)
-        br = (trunk_x + TRI_W / 2, node.bottom + TRI_H + 1.12)
-        pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
-        parts.append(
-            f'<polygon points="{pts}" fill="white" '
-            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
-        )
+        parts.extend(inheritance_triangle(trunk_x, node.bottom + TRI_GAP, style))
 
     return parts
 
@@ -633,7 +674,7 @@ def render_root_connectors_svg(root, style):
             for child in children:
                 marker = reference_marker(child)
                 marker_attr = f' marker-end="url(#{marker})"' if marker else ""
-                edge_x = child.x if child.x >= route_x else child.x + child.w
+                edge_x = reference_edge_x(child, route_x)
                 parts.append(
                     f'<line x1="{route_x:.0f}" y1="{child.cy:.0f}" '
                     f'x2="{edge_x:.0f}" y2="{child.cy:.0f}" '
@@ -711,7 +752,7 @@ def render_root_connectors_svg(root, style):
                     marker = reference_marker(child)
                     marker_attr = f' marker-end="url(#{marker})"' if marker else ""
                     target_y = reference_target_y(child)
-                    edge_x = child.x if child.x >= trunk_x else child.x + child.w
+                    edge_x = reference_edge_x(child, trunk_x)
                     parts.append(
                         f'<line x1="{trunk_x:.0f}" y1="{target_y:.0f}" '
                         f'x2="{edge_x:.0f}" y2="{target_y:.0f}" '
@@ -719,14 +760,7 @@ def render_root_connectors_svg(root, style):
                         f'{marker_attr}/>'
                     )
         if any(child.reference_type == "inheritance" for child in root.children):
-            apex = (root.cx, root.bottom + 1.12)
-            bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
-            br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
-            pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
-            parts.append(
-                f'<polygon points="{pts}" fill="white" '
-                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
-            )
+            parts.extend(inheritance_triangle(root.cx, root.bottom + TRI_GAP, style))
         return parts
 
     reference_type_groups = reference_groups(root.children)
@@ -782,14 +816,7 @@ def render_root_connectors_svg(root, style):
                     f'{marker_attr}/>'
                 )
         if any(child.reference_type == "inheritance" for child in root.children):
-            apex = (root.cx, root.bottom + 1.12)
-            bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
-            br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
-            pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
-            parts.append(
-                f'<polygon points="{pts}" fill="white" '
-                f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
-            )
+            parts.extend(inheritance_triangle(root.cx, root.bottom + TRI_GAP, style))
         return parts
 
     # stub from root down to the bus
@@ -838,7 +865,7 @@ def render_root_connectors_svg(root, style):
             for child in children:
                 marker = reference_marker(child)
                 marker_attr = f' marker-end="url(#{marker})"' if marker else ""
-                edge_x = child.x if direction > 0 else child.x + child.w
+                edge_x = reference_edge_x(child, trunk_x)
                 parts.append(
                     f'<line x1="{trunk_x:.0f}" y1="{child.cy:.0f}" '
                     f'x2="{edge_x:.0f}" y2="{child.cy:.0f}" '
@@ -857,39 +884,42 @@ def render_root_connectors_svg(root, style):
             )
 
     if any(child.reference_type == "inheritance" for child in root.children):
-        apex = (root.cx, root.bottom + 1.12)
-        bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
-        br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
-        pts = f"{apex[0]:.2f},{apex[1]:.2f} {bl[0]:.2f},{bl[1]:.2f} {br[0]:.2f},{br[1]:.2f}"
-        parts.append(
-            f'<polygon points="{pts}" fill="white" '
-            f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1.5"/>'
-        )
+        parts.extend(inheritance_triangle(root.cx, root.bottom + TRI_GAP, style))
 
     return parts
 
 
-def render_defs():
+def render_defs(style):
     parts = ["<defs>"]
     parts.append(
         '<filter id="node-shadow" x="-20%" y="-20%" width="150%" height="150%">'
         '<feDropShadow dx="4" dy="5" stdDeviation="1.5" flood-color="#000000" '
         'flood-opacity="0.5"/></filter>'
     )
+    parts.append(
+        '<linearGradient id="instance-fill" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0%" stop-color="{html.escape(style["instance_fill_start"], quote=True)}"/>'
+        f'<stop offset="100%" stop-color="{html.escape(style["instance_fill_end"], quote=True)}"/>'
+        '</linearGradient>'
+    )
     parts.extend((
-        '<marker id="has-type-definition" viewBox="0 0 10 8" markerWidth="10" '
-        'markerHeight="8" refX="10" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse">'
-        '<path d="M0,0 L5,4 L0,8 Z M5,0 L10,4 L5,8 Z" fill="context-stroke"/></marker>',
-        '<marker id="has-component" viewBox="0 0 4 8" markerWidth="4" '
-        'markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
-        '<path d="M3,0 L3,8" fill="none" stroke="context-stroke" stroke-width="1"/></marker>',
-        '<marker id="has-property" viewBox="0 0 7 8" markerWidth="7" '
-        'markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
-        '<path d="M2,0 L2,8 M5,0 L5,8" fill="none" stroke="context-stroke" '
+        '<marker id="has-type-definition" viewBox="0 0 20.78 12" markerWidth="20.78" '
+        'markerHeight="12" refX="20.78" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L10.39,6 L0,12 Z M10.39,0 L20.78,6 L10.39,12 Z" '
+        'fill="context-stroke"/></marker>',
+        '<marker id="has-component" viewBox="0 0 6 12" markerWidth="6" '
+        'markerHeight="12" refX="6" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
+        f'<path d="M{REFERENCE_MARKER_GAP * 0.75:.1f},0 L{REFERENCE_MARKER_GAP * 0.75:.1f},12" '
+        'fill="none" stroke="context-stroke" stroke-width="1"/></marker>',
+        '<marker id="has-property" viewBox="0 0 10.5 12" markerWidth="10.5" '
+        'markerHeight="12" refX="10.5" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
+        f'<path d="M{REFERENCE_MARKER_GAP * 0.75 - 1.5:.1f},0 L{REFERENCE_MARKER_GAP * 0.75 - 1.5:.1f},12 '
+        f'M{REFERENCE_MARKER_GAP * 0.75 + 1.5:.1f},0 L{REFERENCE_MARKER_GAP * 0.75 + 1.5:.1f},12" '
+        'fill="none" stroke="context-stroke" '
         'stroke-width="1"/></marker>',
-        '<marker id="organizes" viewBox="0 0 10 8" markerWidth="10" '
-        'markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
-        '<path d="M0,0 L10,4 L0,8" fill="none" stroke="context-stroke" '
+        '<marker id="organizes" viewBox="0 0 15 12" markerWidth="15" '
+        'markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" '
         'stroke-width="1"/></marker>',
     ))
     parts.append("</defs>")
@@ -918,11 +948,15 @@ def to_svg(root):
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{W}px" height="{H}px" '
         f'viewBox="-0.5 -0.5 {W} {H}">\n'
-        + render_defs() + '\n'
+        + render_defs(root.style) + '\n'
         + '<g>\n'
         + "\n".join(nodes + connectors) +
         '\n</g>\n</svg>\n'
     )
+    svg = svg.replace('stroke-width="1.5"',
+                      f'stroke-width="{root.style["stroke_width"] * 1.5:g}"')
+    svg = svg.replace('stroke-width="1"',
+                      f'stroke-width="{root.style["stroke_width"]:g}"')
     return svg
 
 
