@@ -102,6 +102,19 @@ The renderer supports arbitrary hierarchy depth. Branches grow outward
 from the root, siblings are stacked vertically, and left/right connectors are
 mirrored.
 
+Nodes may have optional markdown-style IDs, which can be used by additional
+references:
+
+```text
+*** var "Pressure" {#pressure}
+ref AssociatedWith pressure - temperature
+ref AssociatedWith [r] pressure - temperature [l]
+```
+
+Additional references are routed after the hierarchy layout using orthogonal
+paths. Anchor points are selected automatically or can be specified with `[t]`,
+`[b]`, `[l]`, or `[r]`.
+
 ## Input
 
 The input uses a type-system section with PlantUML WBS-style depth markers. Each

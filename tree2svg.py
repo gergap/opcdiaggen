@@ -55,6 +55,7 @@ import argparse
 import html
 import re
 import sys
+from collections import namedtuple
 
 
 # --- geometry / style constants --------------------------------------------
@@ -93,15 +94,17 @@ REFERENCE_TYPES = {
 }
 REFERENCE_ORDER = ("hasTypeDefinition", "hasProperty", "hasComponent", "Organizes", "inheritance")
 NODE_CLASSES = {"obj", "objtype", "var", "vartype", "method", "reftype", "datatype", "view"}
+AdditionalReference = namedtuple("AdditionalReference", "reference_type source source_anchor target target_anchor")
 
 
 class Node:
-    __slots__ = ("label", "nodeclass", "reference_type", "branch_group", "children", "x", "y", "w", "h", "cx", "cy",
+    __slots__ = ("label", "node_id", "nodeclass", "reference_type", "branch_group", "children", "x", "y", "w", "h", "cx", "cy",
                  "bottom", "subtree_top", "subtree_bottom", "subtree_left", "subtree_right",
-                 "style")
+                  "style", "additional_references")
 
-    def __init__(self, label, nodeclass="objtype", reference_type=None, branch_group=0):
+    def __init__(self, label, nodeclass="objtype", reference_type=None, branch_group=0, node_id=None):
         self.label = label
+        self.node_id = node_id
         self.nodeclass = nodeclass
         self.reference_type = reference_type
         self.branch_group = branch_group
@@ -116,6 +119,7 @@ class Node:
             "font": FONT_FAMILY,
             "arrow": STROKE,
         }
+        self.additional_references = []
 
 
 def parse(text):
@@ -137,6 +141,8 @@ def parse(text):
     in_node_skinparam = False
     branch_group = 0
     pending_group_break = False
+    additional_references = []
+    nodes_by_id = {}
     for raw in text.splitlines():
         line = raw.rstrip()
         stripped = line.strip()
@@ -152,6 +158,17 @@ def parse(text):
             continue
         if in_node_skinparam and stripped == "}":
             in_node_skinparam = False
+            continue
+        ref_match = re.fullmatch(
+            r"ref\s+(\S+)(?:\s+\[([tblr])\])?\s+(\S+)\s+-\s+(\S+)(?:\s+\[([tblr])\])?",
+            stripped,
+            re.IGNORECASE,
+        )
+        if ref_match:
+            additional_references.append(AdditionalReference(
+                ref_match.group(1), ref_match.group(3), ref_match.group(2),
+                ref_match.group(4), ref_match.group(5),
+            ))
             continue
         setting = re.match(r"^(?:skinparam\s+)?([A-Za-z]+)\s+(.+)$", stripped)
         if setting:
@@ -217,14 +234,22 @@ def parse(text):
         else:
             nodeclass = "objtype"
         label_text = " ".join(tokens)
-        label_match = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', label_text)
+        label_match = re.fullmatch(
+            r'"((?:[^"\\]|\\.)*)"\s*(?:\{#([A-Za-z_][A-Za-z0-9_-]*)\})?',
+            label_text,
+        )
         if not label_match:
             raise ValueError(f"node label must be quoted near: {stripped!r}")
         label = (label_match.group(1)
                  .replace(r'\n', '\n')
                  .replace(r'\"', '"')
                  .replace(r'\\', '\\'))
-        node = Node(label, nodeclass, explicit_reference, branch_group)
+        node_id = label_match.group(2)
+        node = Node(label, nodeclass, explicit_reference, branch_group, node_id)
+        if node_id:
+            if node_id in nodes_by_id:
+                raise ValueError(f"duplicate node id: {node_id!r}")
+            nodes_by_id[node_id] = node
         if depth == 1:
             root = node
             stack = [(1, node)]
@@ -249,6 +274,10 @@ def parse(text):
     if root is None:
         raise ValueError("no root node found (expected a line starting with a single '*')")
     root.style = style
+    for reference in additional_references:
+        if reference.source not in nodes_by_id or reference.target not in nodes_by_id:
+            raise ValueError(f"unknown node id in reference: {reference!r}")
+    root.additional_references = additional_references
     return root
 
 
@@ -546,6 +575,210 @@ def reference_label_svg(x1, y1, x2, y2, reference_type, style):
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
         f'fill="{html.escape(style["text"], quote=True)}">Organizes</text>'
     )
+
+
+def node_anchor(node, anchor):
+    """Return an anchor coordinate; omitted anchors are selected by direction."""
+    if anchor == "l":
+        return node.x, node.cy
+    if anchor == "r":
+        return node.x + node.w, node.cy
+    if anchor == "t":
+        return node.cx, node.y
+    if anchor == "b":
+        return node.cx, node.bottom
+    return node.cx, node.cy
+
+
+def anchor_direction(source, target):
+    dx = target.cx - source.cx
+    dy = target.cy - source.cy
+    if abs(dx) >= abs(dy):
+        return "r" if dx >= 0 else "l"
+    return "b" if dy >= 0 else "t"
+
+
+def anchor_side(node, anchor):
+    if anchor == "l":
+        return "l"
+    if anchor == "r":
+        return "r"
+    if anchor == "t":
+        return "t"
+    if anchor == "b":
+        return "b"
+    return None
+
+
+def reference_anchor_usage(root):
+    """Record anchor sides occupied by hierarchy edges, grouped by reference type."""
+    usage = {}
+
+    def occupy(node, side, reference_type):
+        usage.setdefault(node, {}).setdefault(side, set()).add(reference_type)
+
+    def walk(node):
+        for child in node.children:
+            if child.reference_type in ("hasProperty", "hasComponent", "Organizes"):
+                occupy(node, "b", child.reference_type)
+                occupy(child, "l", child.reference_type)
+            elif child.reference_type == "hasTypeDefinition":
+                occupy(node, "b", child.reference_type)
+                occupy(child, "t", child.reference_type)
+            else:
+                occupy(node, "b", child.reference_type)
+                occupy(child, "t", child.reference_type)
+            walk(child)
+
+    walk(root)
+    return usage
+
+
+def choose_reference_anchor(node, preferred, reference_type, usage):
+    """Choose a free anchor, allowing sharing only with the same reference type."""
+    candidates = [preferred] + [side for side in "r l b t".split() if side != preferred]
+    for side in candidates:
+        occupied = usage.setdefault(node, {}).setdefault(side, set())
+        if not occupied or occupied == {reference_type}:
+            occupied.add(reference_type)
+            return side
+    raise ValueError(f"no available anchor for {reference_type!r} on node {node.node_id!r}")
+
+
+def resolve_additional_references(root, nodes):
+    usage = reference_anchor_usage(root)
+    resolved = []
+    for reference in root.additional_references:
+        source = nodes[reference.source]
+        target = nodes[reference.target]
+        source_anchor = reference.source_anchor or choose_reference_anchor(
+            source, anchor_direction(source, target), reference.reference_type, usage)
+        target_anchor = reference.target_anchor or choose_reference_anchor(
+            target, anchor_direction(target, source), reference.reference_type, usage)
+        for node, side in ((source, source_anchor), (target, target_anchor)):
+            occupied = usage.setdefault(node, {}).setdefault(side, set())
+            if occupied and occupied != {reference.reference_type}:
+                raise ValueError(
+                    f"anchor [{side}] on node {node.node_id!r} is already used by "
+                    f"a different reference type"
+                )
+            occupied.add(reference.reference_type)
+        resolved.append(reference._replace(source_anchor=source_anchor, target_anchor=target_anchor))
+    return resolved
+
+
+def additional_reference_svg(reference, nodes, style):
+    """Route an extra reference around node rectangles using the least-obstructed path."""
+    source = nodes[reference.source]
+    target = nodes[reference.target]
+    sx, sy = node_anchor(source, reference.source_anchor)
+    tx, ty = node_anchor(target, reference.target_anchor)
+    margin = MIN_SPACING
+    # Include endpoints as obstacles too: a same-side route must not cross the
+    # target or source body before reaching its selected boundary anchor.
+    obstacles = list(nodes.values())
+    source_side = anchor_side(source, reference.source_anchor)
+    target_side = anchor_side(target, reference.target_anchor)
+    channels_y = {sy, ty}
+    channels_x = {sx, tx}
+    for node in obstacles:
+        channels_y.update((node.y - margin, node.bottom + margin))
+        channels_x.update((node.x - margin, node.x + node.w + margin))
+    # The source and target are excluded from `obstacles`, but their clearance
+    # channels are still required for same-side routes around either node.
+    for node in (source, target):
+        channels_y.update((node.y - margin, node.bottom + margin))
+        channels_x.update((node.x - margin, node.x + node.w + margin))
+    candidates = []
+    same_side = source_side == target_side and source_side in ("l", "r", "t", "b")
+    if source_side == target_side == "r":
+        channels_x.add(max(source.x + source.w, target.x + target.w) + margin)
+        channels_x = {x for x in channels_x if x >= max(source.x + source.w, target.x + target.w) + margin}
+    elif source_side == target_side == "l":
+        channels_x.add(min(source.x, target.x) - margin)
+        channels_x = {x for x in channels_x if x <= min(source.x, target.x) - margin}
+    elif source_side == target_side == "b":
+        channels_y.add(max(source.bottom, target.bottom) + margin)
+        channels_y = {y for y in channels_y if y >= max(source.bottom, target.bottom) + margin}
+    elif source_side == target_side == "t":
+        channels_y.add(min(source.y, target.y) - margin)
+        channels_y = {y for y in channels_y if y <= min(source.y, target.y) - margin}
+    if source_side == target_side == "r":
+        for channel_y in channels_y:
+            candidates.append([
+                (sx, sy), (sx + margin, sy), (sx + margin, channel_y),
+                (tx + margin, channel_y), (tx + margin, ty), (tx, ty),
+            ])
+    elif source_side == target_side == "l":
+        for channel_y in channels_y:
+            candidates.append([
+                (sx, sy), (sx - margin, sy), (sx - margin, channel_y),
+                (tx - margin, channel_y), (tx - margin, ty), (tx, ty),
+            ])
+    elif source_side == target_side == "b":
+        for channel_x in channels_x:
+            candidates.append([
+                (sx, sy), (sx, sy + margin), (channel_x, sy + margin),
+                (channel_x, ty + margin), (tx, ty + margin), (tx, ty),
+            ])
+    elif source_side == target_side == "t":
+        for channel_x in channels_x:
+            candidates.append([
+                (sx, sy), (sx, sy - margin), (channel_x, sy - margin),
+                (channel_x, ty - margin), (tx, ty - margin), (tx, ty),
+            ])
+    elif not same_side:
+        for channel_y in channels_y:
+            candidates.append([(sx, sy), (sx, channel_y), (tx, channel_y), (tx, ty)])
+        for channel_x in channels_x:
+            candidates.append([(sx, sy), (channel_x, sy), (channel_x, ty), (tx, ty)])
+    else:
+        for channel_x in channels_x:
+            candidates.append([(sx, sy), (channel_x, sy), (channel_x, ty), (tx, ty)])
+        if source_side in ("t", "b"):
+            for channel_y in channels_y:
+                candidates.append([(sx, sy), (sx, channel_y), (tx, channel_y), (tx, ty)])
+        elif source_side in ("l", "r"):
+            for channel_x in channels_x:
+                for channel_y in channels_y:
+                    candidates.append([
+                        (sx, sy), (sx, channel_y), (channel_x, channel_y),
+                        (tx, channel_y), (tx, ty),
+                    ])
+    candidates = [
+        [point for index, point in enumerate(candidate)
+         if index == 0 or point != candidate[index - 1]]
+        for candidate in candidates
+    ]
+
+    def blocked(a, b, node):
+        if a[0] == b[0]:
+            return node.x < a[0] < node.x + node.w and max(min(a[1], b[1]), node.y) < min(max(a[1], b[1]), node.bottom)
+        if a[1] == b[1]:
+            return node.y < a[1] < node.bottom and max(min(a[0], b[0]), node.x) < min(max(a[0], b[0]), node.x + node.w)
+        return True
+
+    def score(candidate):
+        blocked_count = sum(
+            blocked(a, b, node) for a, b in zip(candidate, candidate[1:]) for node in obstacles
+        )
+        length = sum(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a, b in zip(candidate, candidate[1:]))
+        bends = sum(
+            (a[0] != b[0] and b[1] != c[1]) or (a[1] != b[1] and b[0] != c[0])
+            for a, b, c in zip(candidate, candidate[1:], candidate[2:])
+        )
+        return blocked_count * 1_000_000 + bends * 100 + length
+
+    path = min(candidates, key=score)
+    points = " ".join(f"{x:.0f},{y:.0f}" for x, y in path)
+    label_x, label_y = path[len(path) // 2]
+    return [
+        f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
+        f'stroke-width="{style["stroke_width"]:g}" marker-end="url(#additional-reference)"/>',
+        f'<text x="{label_x:.0f}" y="{label_y - 4:.0f}" text-anchor="middle" '
+        f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
+        f'fill="{html.escape(style["text"], quote=True)}">{html.escape(reference.reference_type)}</text>',
+    ]
 
 
 def reference_anchors(node, groups):
@@ -921,6 +1154,10 @@ def render_defs(style):
         'markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
         '<path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" '
         'stroke-width="1"/></marker>',
+        '<marker id="additional-reference" viewBox="0 0 15 12" markerWidth="15" '
+        'markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" '
+        'stroke-width="1"/></marker>',
     ))
     parts.append("</defs>")
     return "".join(parts)
@@ -931,9 +1168,12 @@ def to_svg(root):
 
     nodes = []
     connectors = []
+    nodes_by_id = {}
 
     def walk(node, is_root=False):
         nodes.extend(render_node_svg(node, root.style))
+        if node.node_id:
+            nodes_by_id[node.node_id] = node
         if is_root:
             connectors.extend(render_root_connectors_svg(node, root.style))
         else:
@@ -942,6 +1182,8 @@ def to_svg(root):
             walk(child)
 
     walk(root, is_root=True)
+    for reference in resolve_additional_references(root, nodes_by_id):
+        connectors.extend(additional_reference_svg(reference, nodes_by_id, root.style))
 
     svg = (
         f'<?xml version="1.0" encoding="UTF-8"?>\n'

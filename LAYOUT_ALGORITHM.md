@@ -254,4 +254,33 @@ Example East-South:
 In this example one East-West edge (1) is combined with a South-North edge (2).
 In this case the length of b2 and c2 are zero.
 
+### Additional References
 
+The main layout algorithm works using the given hierarchy of objects.
+Additional, non-hierarchical references may be specified in addition after the
+node hierarchy. These references are routed after the node and main references
+have been laid out. Therefor the nodes can contain an optional Id in the format
+`{#identifier}`, that is used to specify additional references.
+
+Id Example:
+```
+*** hasProperty var "Pressure\n1769.00 kPa" {#boiler2_pressure}
+```
+
+Syntax:
+```
+ref <type> [start_anchor] <start_id> - <end_id> [end_anchor]
+```
+
+Example:
+```
+' additional references, automatic anchor point selection
+ref AssociatedWith boiler1_pressure - boiler2_pressure
+' additional references, manual anchor point selection
+ref AssociatedWith [r] boiler1_temperature - boiler2_temperature [r]
+```
+
+The user may specify the optional anchor points of start and end node.
+If not specified the algorithm must choose a free anchor point, preferring
+points which lay in edge direction.
+Anchor points can only be used if either unused, or used by the same reference type.
