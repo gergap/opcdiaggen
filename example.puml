@@ -9,12 +9,12 @@
 *** var "Flow [Double]\nOptional"
 
 ** obj "Boiler #1"
-*** hasProperty var "Pressure\n1500.00"
-*** hasProperty var "Temperature\n260"
-*** hasProperty var "Flow\n20.34"
+*** hasProperty var "Pressure\n1500.00 kPa"
+*** hasProperty var "Temperature\n260 °C"
+*** hasProperty var "Flow\n20.34 m^3/s"
 
 ** obj "Boiler #2"
-*** hasProperty var "Pressure\n1769.00"
-*** hasProperty var "Temperature\n233"
+*** hasProperty var "Pressure\n1769.00 kPa"
+*** hasProperty var "Temperature\n233 °C"
 
 @endtypesystem

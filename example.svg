@@ -25,15 +25,15 @@
 <g>
 <rect x="254" y="324" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="341.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Pressure</tspan><tspan x="369" dy="14.4">1500.00</tspan></text>
+<text x="369" y="341.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Pressure</tspan><tspan x="369" dy="14.4">1500.00 kPa</tspan></text>
 <g>
 <rect x="254" y="384" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="401.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Temperature</tspan><tspan x="369" dy="14.4">260</tspan></text>
+<text x="369" y="401.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Temperature</tspan><tspan x="369" dy="14.4">260 °C</tspan></text>
 <g>
 <rect x="254" y="444" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="369" y="461.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Flow</tspan><tspan x="369" dy="14.4">20.34</tspan></text>
+<text x="369" y="461.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="369" dy="0.0">Flow</tspan><tspan x="369" dy="14.4">20.34 m<tspan baseline-shift="super" font-size="70%">3</tspan>/s</tspan></text>
 <g>
 <rect x="504" y="264" width="230" height="40" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
@@ -41,11 +41,11 @@
 <g>
 <rect x="754" y="324" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="869" y="341.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="869" dy="0.0">Pressure</tspan><tspan x="869" dy="14.4">1769.00</tspan></text>
+<text x="869" y="341.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="869" dy="0.0">Pressure</tspan><tspan x="869" dy="14.4">1769.00 kPa</tspan></text>
 <g>
 <rect x="754" y="384" width="230" height="40" rx="8" fill="#e6ecf7" stroke="#4a6fa5" pointer-events="all"/>
 </g>
-<text x="869" y="401.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="869" dy="0.0">Temperature</tspan><tspan x="869" dy="14.4">233</tspan></text>
+<text x="869" y="401.0" text-anchor="middle" font-family="Helvetica" font-size="12" font-style="normal" fill="#000000"><tspan x="869" dy="0.0">Temperature</tspan><tspan x="869" dy="14.4">233 °C</tspan></text>
 <line x1="532" y1="44.00" x2="532" y2="204" stroke="#4a6fa5" stroke-width="1"/>
 <line x1="532" y1="84" x2="629" y2="84" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
 <line x1="532" y1="144" x2="629" y2="144" stroke="#4a6fa5" stroke-width="1" marker-end="url(#has-property)"/>
