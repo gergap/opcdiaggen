@@ -396,7 +396,18 @@ def render_node_svg(node, style):
         )
     parts.append('</g>')
     text_x = node.cx
-    label_lines = [html.escape(line) for line in node.label.split("\n")]
+    label_lines = []
+    for line in node.label.split("\n"):
+        line_parts = []
+        for part in re.split(r"(\^[0-9]+)", line):
+            if re.fullmatch(r"\^[0-9]+", part):
+                line_parts.append(
+                    f'<tspan baseline-shift="super" font-size="70%">'
+                    f'{html.escape(part[1:])}</tspan>'
+                )
+            else:
+                line_parts.append(html.escape(part))
+        label_lines.append("".join(line_parts))
     line_height = FONT_SIZE * 1.2
     first_line_y = node.cy + FONT_SIZE * 0.35 - (len(label_lines) - 1) * line_height / 2
     tspans = [
