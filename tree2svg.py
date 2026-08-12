@@ -49,7 +49,6 @@ matching the reference OPC UA diagram.
 
 Usage:
     python3 tree2svg.py input.puml -o output.svg
-    python3 tree2svg.py input.puml -o output.svg --no-triangles
 """
 
 import argparse
@@ -508,10 +507,8 @@ def reference_anchors(node, groups):
             for index in range(count)]
 
 
-def render_connectors_svg(node, style, triangles=True):
-    """Draw the merged trunk + stubs from `node` down to its children, plus
-    (optionally) a hollow UML triangle where the trunk meets node's bottom
-    edge."""
+def render_connectors_svg(node, style):
+    """Draw the merged trunk + stubs from `node` down to its children."""
     parts = []
     if not node.children:
         return parts
@@ -582,7 +579,7 @@ def render_connectors_svg(node, style, triangles=True):
                 target_y, child.reference_type, style
             ))
 
-    if triangles and any(child.reference_type == "inheritance" for child in node.children):
+    if any(child.reference_type == "inheritance" for child in node.children):
         apex = (trunk_x, node.bottom + 1.12)
         bl = (trunk_x - TRI_W / 2, node.bottom + TRI_H + 1.12)
         br = (trunk_x + TRI_W / 2, node.bottom + TRI_H + 1.12)
@@ -595,7 +592,7 @@ def render_connectors_svg(node, style, triangles=True):
     return parts
 
 
-def render_root_connectors_svg(root, style, triangles=True):
+def render_root_connectors_svg(root, style):
     """Root's children are spread horizontally: one shared horizontal bus at
     root.bottom + GAP_Y_ROOT/2, with a stub down from root and a stub down
     into each child, plus one triangle at root's own bottom edge."""
@@ -721,7 +718,7 @@ def render_root_connectors_svg(root, style, triangles=True):
                         f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
                         f'{marker_attr}/>'
                     )
-        if triangles and any(child.reference_type == "inheritance" for child in root.children):
+        if any(child.reference_type == "inheritance" for child in root.children):
             apex = (root.cx, root.bottom + 1.12)
             bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
             br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
@@ -784,7 +781,7 @@ def render_root_connectors_svg(root, style, triangles=True):
                     f'stroke="{html.escape(style["arrow"], quote=True)}" stroke-width="1"'
                     f'{marker_attr}/>'
                 )
-        if triangles and any(child.reference_type == "inheritance" for child in root.children):
+        if any(child.reference_type == "inheritance" for child in root.children):
             apex = (root.cx, root.bottom + 1.12)
             bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
             br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
@@ -859,7 +856,7 @@ def render_root_connectors_svg(root, style, triangles=True):
                 f'{marker_attr}/>'
             )
 
-    if triangles and any(child.reference_type == "inheritance" for child in root.children):
+    if any(child.reference_type == "inheritance" for child in root.children):
         apex = (root.cx, root.bottom + 1.12)
         bl = (root.cx - TRI_W / 2, root.bottom + TRI_H + 1.12)
         br = (root.cx + TRI_W / 2, root.bottom + TRI_H + 1.12)
@@ -899,7 +896,7 @@ def render_defs():
     return "".join(parts)
 
 
-def to_svg(root, triangles=True):
+def to_svg(root):
     W, H = layout(root)
 
     nodes = []
@@ -908,9 +905,9 @@ def to_svg(root, triangles=True):
     def walk(node, is_root=False):
         nodes.extend(render_node_svg(node, root.style))
         if is_root:
-            connectors.extend(render_root_connectors_svg(node, root.style, triangles))
+            connectors.extend(render_root_connectors_svg(node, root.style))
         else:
-            connectors.extend(render_connectors_svg(node, root.style, triangles))
+            connectors.extend(render_connectors_svg(node, root.style))
         for child in node.children:
             walk(child)
 
@@ -935,14 +932,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("infile", help="input type-system file with '*'-depth nodes")
     ap.add_argument("-o", "--outfile", help="output SVG path (default: <infile>.svg)")
-    ap.add_argument("--no-triangles", action="store_true", help="plain tree lines, no UML inheritance triangles")
     args = ap.parse_args()
 
     with open(args.infile, "r", encoding="utf-8") as f:
         text = f.read()
 
     root = parse(text)
-    svg = to_svg(root, triangles=not args.no_triangles)
+    svg = to_svg(root)
 
     outfile = args.outfile
     if not outfile:

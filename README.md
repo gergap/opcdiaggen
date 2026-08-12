@@ -118,8 +118,6 @@ The minimum node width defaults to 230 pixels and can be changed with
 `skinparam nodeMinWidth 180`. Nodes expand beyond that width when their labels
 need more space.
 
-Use `--no-triangles` with `tree2svg.py` to omit UML inheritance triangles.
-
 ## License
 
 The renderer is licensed under the GNU General Public License, version 3 only.
