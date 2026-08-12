@@ -17,16 +17,16 @@ to find the anchor points of the $n$ reference trunks as shown in this
 diagram:
 
 ```
-                | top achor point
+                | top anchor point
 left   +--------+--------+
 -------|   BoilerType    |
        +-----+-----+-----+
-             |     | two botto anchor points
+             |     | two bottom anchor points
 ```
 
 The incoming/outgoing direction may differ from the arrow head direction.
 Notable exception: HasSubtype reference, which points to the source (base type),
-but technically the references goes from base type to subtype.
+but technically the reference goes from base type to subtype.
 
 - Incoming references of type HasComponent, HasProperty, and Organizes
 should use the left anchor point.
@@ -36,17 +36,19 @@ should use the left anchor point.
 
 ## Layout Groups
 
-1. Each node should first be layouted using its "aggregated" members,
+1. Each node should first be laid out using its "aggregated" members,
 which can be properties and components, referenced by HasProperty
-and HasComponent references. The right most bottom anchor points should be used to connect the children.
+and HasComponent references. The rightmost bottom anchor points should be used to connect the children.
 The children are vertically stacked on top of each other.
-These connected child nodes naturally will be placed with the shortest distance to its parent.
-If no other outgoing bottom references exist the children can be grouped into a left and right column spread evenly: 8 children: 4 left, 4 right, 7 children: 4 left, 3 right.
+These connected child nodes will naturally be placed at the shortest distance from their parent.
+If no other outgoing bottom references exist the children can be grouped into a left and right column spread evenly:
+    - 8 children: 4 left, 4 right
+    - 7 children: 4 left, 3 right.
 2. Then create a bounding box around this group of nodes.
 3. Layout these node groups without overlap:
-  a) Subtypes and Instances should be placed below its (base) type. The Y offset can be found be using the parent's bounding box height + the value of `min-spacing` setting. Place them horizontally side-by-side with even spacing.
-    Use bounding boxes and a global `min-spacing` setting to calculate the horizontal positions. All subtypes should have the some y coordinates. If more then 4 subtypes are given arrange them in rows. Max 4 groups per row. This maximum should also be configurable.
-  b) Node groups referenced by Organizes references should be placed below and right the parent to create a tree like structure. Siblings are placed vertically stacked.
+     1. Subtypes and Instances should be placed below their (base) type. The Y offset can be found by using the parent's bounding box height + the value of the `min-spacing` setting. Place them horizontally side-by-side with even spacing.
+        Use bounding boxes and a global `min-spacing` setting to calculate the horizontal positions. All subtypes should have the same y coordinates. If more than 4 subtypes are given, arrange them in rows. Max. 4 groups per row. This maximum should also be configurable.
+     2. Node groups referenced by Organizes references should be placed below and to the right of the parent to create a tree-like structure. Siblings are placed vertically stacked.
 
 
 Stacked Children Example in two columns:
@@ -104,8 +106,8 @@ Combined Example:
 
 ### Node Shapes
 
-A general rule is that _Type_ nodes have a shadow, instances have not.
-_Types_ also use Italic font, whereas instances use regular font.
+A general rule is that _Type_ nodes have a shadow; instances do not.
+_Types_ also use italic font, whereas instances use regular font.
 
 | Node Class             | Shape                           |
 |------------------------|---------------------------------|
@@ -128,13 +130,13 @@ UA references are rendered as edges with different arrow symbols depending on it
 | HasTypeDefinition | Double filled triangle. Points to the Type node.        |
 | HasSubtype        | Double triangle. Points to the base type.               |
 
-Other reference can contain a label with the reference type name.
+Other references can contain a label with the reference type name.
 Example: `---Organizes--->`
 
 General reference styles:
 - Symmetric ReferenceTypes are represented as lines between Nodes with closed and filled arrows on both sides pointing to the connected Nodes. Near the line has to be a text containing the string-part of the BrowseName of the ReferenceType.
 - Asymmetric ReferenceTypes are represented as lines between Nodes with a closed and filled arrow on the side pointing to the TargetNode. Near the line has to be a text containing the string-part of the BrowseName of the ReferenceType.
-- Asymmetric ReferenceTypes that are subtypes of HierarchicalReferences should be exposed the same way as asymmetric ReferenceTypes except that an open arrow is used.
+- Asymmetric ReferenceTypes that are subtypes of HierarchicalReferences should be displayed the same way as asymmetric ReferenceTypes, except that an open arrow is used.
 
 List of HierarchicalReferences:
 - HasEventSource
