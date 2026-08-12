@@ -14,7 +14,8 @@ SVG into a raster PNG and preserves SVG filters such as node shadows.
 
 Standard tools like Graphviz, PlantUML, and Mermaid are not able to render the
 OPC UA type hierarchies with the layout and style required by the OPC
-Specification.
+Specification. The graphical notation for OPC UA specifications is defined
+in [OPC UA Part 3, Annex C](https://reference.opcfoundation.org/specs/OPC-10000-3/annex-c).
 
 ### A Typical OPC UA Type Hierarchy
 
