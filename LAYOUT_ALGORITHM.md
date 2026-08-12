@@ -166,3 +166,92 @@ List of NonHierarchicalReferences:
 - AssociatedWith (symmetric)
 - GeneratesEvent
 - AlwaysGeneratesEvent
+
+### Orthogonal Edge Routing
+
+Edges are routed orthogonal.
+
+#### Rules
+
+- Edges never go through nodes.
+- Edges should keep MIN_SPACING distance from nodes.
+
+#### South-North Direction
+
+This is typically used to create parent/child relations, but is not limited to this use-case.
+
+```
+     ^  arrow head
+     |  segment a: vertical segment to the arrow head
+     |
++----+  segment b: horizontal segment
+|       segment c: vertical segment from the source node
+```
+
+Segment a) connects the edge at a node's bottom anchor point and has variable
+    length (len_a >= `MIN_SPACING`).
+Segment b) connects the two segment a) and c) horizontally and has variable
+    length. In case of zero length a) and c) together look like one straight line.
+Segment c) starts at a node's top anchor point and has a fixed length of `MIN_SPACING`.
+
+Mirroring: If going from North to South, the segments are reversed. a) is connected
+to the source node's bottom anchor point and c) is connected to the target node's
+top anchor point.
+
+#### East-West Direction
+
+The concept is similar to North-south but goes into horizontal direction and
+this consists of two horizontal segments and one vertical segment.
+
+```
+--+       segment c) horizontal segment from source node
+  |       segment b) vertical segment
+  |
+  +-----> segment a) horizontal segment to arrow head
+```
+
+Segment a) connects the edge at a node's west anchor point and has variable
+    length (len_a >= `MIN_SPACING`).
+Segment b) connects the two segments a) and c) vertically and has variable
+    length. In case of zero length a) and c) together look like one straight line.
+Segment c) starts at a node's east anchor point as has a fixed length of MIN_SPACING.
+
+Mirroring: If going from West to East, the segments are reversed. a) is connected
+to the source node's east anchor point and c) is connected to the target node's
+west anchor point.
+
+#### Combinations
+
+Sometime two ore more orthogonal edges are required to reach the target without
+crossing other edges or nodes. One example is the connect two east anchor points
+of two nodes using two East-West edges. If the start of the second edge is not 
+a node, but another edge segment c) can have zero length instead of MIN_SPACING.
+
+Example East-East:
+
+```
++--------+ c1     +--------+ a3
+| Node 1 |--+     | Node 1 |<-+
++--------+  |b1   +--------+  | b2
+            +-----------------+
+                   a1
+```
+
+In this example of two East-West edges 1 and 2, the segment c2 has zero length.
+
+Example East-South:
+
+```
++--------+ c1     +--------+
+| Node 1 |--+     | Node 1 |
++--------+  |b1   +--------+
+            |         ^
+            |         | a2
+            +---------+
+                   a1
+```
+
+In this example one East-West edge (1) is combined with a South-North edge (2).
+In this case the length of b2 and c2 are zero.
+
+
