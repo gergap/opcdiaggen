@@ -926,7 +926,7 @@ def route_additional_references_libavoid(references, nodes, all_nodes, fixed_pat
     return routes
 
 
-def additional_reference_svg(reference, nodes, style, path):
+def additional_reference_svg(reference, nodes, style, path, crossing_segments=()):
     """Render a route produced by libavoid."""
     # libavoid pins are offset inside shapes to route around the buffered
     # obstacle. Render the visible endpoints on the node boundaries instead.
@@ -984,7 +984,59 @@ def additional_reference_svg(reference, nodes, style, path):
         else:
             simplified.append(point)
     rendered_path = simplified
-    points = " ".join(f"{x:.0f},{y:.0f}" for x, y in rendered_path)
+    crossing_points = set()
+    for first, second in zip(rendered_path, rendered_path[1:]):
+        horizontal = first[1] == second[1]
+        for other_first, other_second in crossing_segments:
+            other_horizontal = other_first[1] == other_second[1]
+            if horizontal == other_horizontal:
+                continue
+            horizontal_segment = (first, second) if horizontal else (other_first, other_second)
+            vertical_segment = (other_first, other_second) if horizontal else (first, second)
+            left, right = sorted((horizontal_segment[0][0], horizontal_segment[1][0]))
+            top, bottom = sorted((vertical_segment[0][1], vertical_segment[1][1]))
+            crossing_x = vertical_segment[0][0]
+            crossing_y = horizontal_segment[0][1]
+            if left < crossing_x < right and top < crossing_y < bottom:
+                crossing_points.add((crossing_x, crossing_y))
+
+    def svg_path(points):
+        commands = [f"M {points[0][0]:.0f},{points[0][1]:.0f}"]
+        bump = 5
+        for first, second in zip(points, points[1:]):
+            horizontal = first[1] == second[1]
+            crossings = [point for point in crossing_points if
+                         ((first[0] < point[0] < second[0]
+                           or second[0] < point[0] < first[0]) if horizontal else
+                          (first[1] < point[1] < second[1]
+                           or second[1] < point[1] < first[1]))]
+            crossings.sort(key=lambda point: point[0] if horizontal else point[1],
+                           reverse=second[0] < first[0] if horizontal else second[1] < first[1])
+            current = first
+            for crossing_x, crossing_y in crossings:
+                if horizontal:
+                    direction = 1 if second[0] > first[0] else -1
+                    before = (crossing_x - direction * bump, crossing_y)
+                    after = (crossing_x + direction * bump, crossing_y)
+                    commands.append(f"L {before[0]:.0f},{before[1]:.0f}")
+                    commands.append(
+                        f"Q {crossing_x:.0f},{crossing_y - bump:.0f} "
+                        f"{after[0]:.0f},{after[1]:.0f}"
+                    )
+                else:
+                    direction = 1 if second[1] > first[1] else -1
+                    before = (crossing_x, crossing_y - direction * bump)
+                    after = (crossing_x, crossing_y + direction * bump)
+                    commands.append(f"L {before[0]:.0f},{before[1]:.0f}")
+                    commands.append(
+                        f"Q {crossing_x + bump:.0f},{crossing_y:.0f} "
+                        f"{after[0]:.0f},{after[1]:.0f}"
+                    )
+                current = after
+            commands.append(f"L {second[0]:.0f},{second[1]:.0f}")
+        return " ".join(commands)
+
+    path_data = svg_path(rendered_path)
     segments = list(zip(rendered_path, rendered_path[1:]))
     label_segment = max(
         segments,
@@ -1006,7 +1058,8 @@ def additional_reference_svg(reference, nodes, style, path):
     marker = "associated-with" if symmetric else "additional-reference"
     marker_start = f' marker-start="url(#{marker})"' if symmetric else ""
     return [
-        f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
+        f'<path d="{path_data}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
+        f'stroke-linecap="round" '
         f'stroke-width="{style["stroke_width"]:g}"{marker_start} marker-end="url(#{marker})"/>',
         f'<text x="{label_x:.0f}" y="{label_y - 4:.0f}" text-anchor="middle" '
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
@@ -1447,10 +1500,19 @@ def to_svg(root):
         except Exception as exc:
             print(f"libavoid routing failed; skipping additional references: {exc}", file=sys.stderr)
         else:
+            existing_segments = []
+            for fixed_path in fixed_connector_paths(connectors):
+                existing_segments.extend(zip(fixed_path, fixed_path[1:]))
             for reference in references:
+                route = libavoid_routes[reference]
                 connectors.extend(additional_reference_svg(
-                    reference, nodes_by_id, root.style, libavoid_routes[reference]
+                    reference, nodes_by_id, root.style, route,
+                    existing_segments
                 ))
+                rendered_path = list(route)
+                rendered_path[0] = node_anchor(nodes_by_id[reference.source], reference.source_anchor)
+                rendered_path[-1] = node_anchor(nodes_by_id[reference.target], reference.target_anchor)
+                existing_segments.extend(zip(rendered_path, rendered_path[1:]))
 
     svg = (
         f'<?xml version="1.0" encoding="UTF-8"?>\n'

@@ -67,9 +67,9 @@
 
 <line x1="494" y1="404" x2="604" y2="404" stroke="#404040" stroke-width="1.3" marker-end="url(#has-property)"/>
 
-<polyline points="384,344 429,344 429,464 824,464 824,344 784,344" fill="none" stroke="#404040" stroke-width="1.3" marker-start="url(#associated-with)" marker-end="url(#associated-with)"/>
+<path d="M 384,344 L 429,344 L 429,464 L 824,464 L 824,344 L 784,344" fill="none" stroke="#404040" stroke-linecap="round" stroke-width="1.3" marker-start="url(#associated-with)" marker-end="url(#associated-with)"/>
 <text x="626" y="456" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
-<polyline points="384,404 449,404 449,444 804,444 804,404 784,404" fill="none" stroke="#404040" stroke-width="1.3" marker-start="url(#associated-with)" marker-end="url(#associated-with)"/>
+<path d="M 384,404 L 424,404 Q 429,399 434,404 L 449,404 L 449,444 L 804,444 L 804,404 L 784,404" fill="none" stroke="#404040" stroke-linecap="round" stroke-width="1.3" marker-start="url(#associated-with)" marker-end="url(#associated-with)"/>
 <text x="626" y="436" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
 </g>
 </svg>
