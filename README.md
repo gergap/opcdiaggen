@@ -30,8 +30,10 @@ collaboration diagram.
 
 ## Installation
 
-Python 3 is required to render SVG files. `rsvg-convert` is additionally
-required only for PNG generation. On Debian or Ubuntu, install both with:
+Python 3 is required to render SVG files. The renderer can run without the
+native libavoid extension, using its built-in fallback router. `rsvg-convert`
+is additionally required only for PNG generation. On Debian or Ubuntu, install
+both with:
 
 ```sh
 sudo apt install python3 librsvg2-bin
@@ -111,9 +113,52 @@ ref AssociatedWith pressure - temperature
 ref AssociatedWith [r] pressure - temperature [l]
 ```
 
-Additional references are routed after the hierarchy layout using orthogonal
-paths. Anchor points are selected automatically or can be specified with `[t]`,
-`[b]`, `[l]`, or `[r]`.
+The renderer uses a two-stage pipeline. First, nodes and hierarchical
+references are laid out by the algorithm described in
+`LAYOUT_ALGORITHM.md`. Then additional, non-hierarchical references are routed
+with libavoid's orthogonal object-avoiding router when the pybind11 extension is
+available. Hierarchy trunks and their layout are not passed back through
+libavoid.
+
+Libavoid routes all additional references in one batch. Node rectangles are
+obstacles, and each connector is attached to a directional
+`ShapeConnectionPin` on its source and target node. The router uses
+`MIN_SPACING` as its shape buffer and nudging distance, with penalties for
+extra segments and crossings. The returned paths are checked for node
+collisions before rendering. If the extension is unavailable or returns an
+invalid path, the built-in Python router is used instead. Anchor points are
+selected automatically or can be specified with `[t]`, `[b]`, `[l]`, or `[r]`.
+
+For an Adaptagrams source checkout cloned into `./adaptagrams`, the included
+script uses that checkout. Otherwise CMake fetches Adaptagrams and pybind11:
+
+```sh
+./build_libavoid_py11.sh
+```
+
+The script delegates compiler, Python, dependency-fetching, and
+platform-specific linking decisions to CMake. Set `CMAKE_GENERATOR`,
+`CMAKE_BUILD_DIR`, or `CMAKE_BUILD_TYPE` when needed, and pass a different
+Adaptagrams checkout as the first argument.
+
+Alternatively, CMake can fetch both dependencies and build the native library
+and binding portably on Linux and Windows:
+
+```sh
+cmake -S . -B build
+cmake --build build --config Release
+```
+
+When `./adaptagrams` exists, CMake uses it instead of downloading Adaptagrams.
+Use `-DOPCDIAGGEN_ADAPTAGRAMS_DIR=/path/to/adaptagrams` to select another
+checkout. Disable downloads with `-DOPCDIAGGEN_FETCH_DEPENDENCIES=OFF` when
+both Adaptagrams and pybind11 are already installed or otherwise supplied to
+CMake.
+
+The binding attaches every connector to a libavoid `ShapeConnectionPin` and
+places boundary pins inside the node by the configured clearance distance. This
+is required for orthogonal routes because free-point endpoints on the raw node
+boundary do not account for libavoid's buffered obstacle boundary.
 
 ## Input
 

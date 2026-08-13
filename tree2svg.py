@@ -57,6 +57,13 @@ import re
 import sys
 from collections import namedtuple
 
+try:
+    import _libavoid_py11 as _adaptagrams
+    print("Successfully imported libavoid_py11")
+except ImportError:
+    print("Failed to import libavoid_py11")
+    _adaptagrams = None
+
 
 # --- geometry / style constants --------------------------------------------
 
@@ -667,8 +674,8 @@ def resolve_additional_references(root, nodes):
     return resolved
 
 
-def additional_reference_svg(reference, nodes, style):
-    """Route an extra reference around node rectangles using the least-obstructed path."""
+def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, all_nodes):
+    """Fallback router used when the optional libavoid binding is unavailable."""
     source = nodes[reference.source]
     target = nodes[reference.target]
     sx, sy = node_anchor(source, reference.source_anchor)
@@ -676,7 +683,7 @@ def additional_reference_svg(reference, nodes, style):
     margin = MIN_SPACING
     # Include endpoints as obstacles too: a same-side route must not cross the
     # target or source body before reaching its selected boundary anchor.
-    obstacles = list(nodes.values())
+    obstacles = [node for node in all_nodes if node not in (source, target)]
     source_side = anchor_side(source, reference.source_anchor)
     target_side = anchor_side(target, reference.target_anchor)
     channels_y = {sy, ty}
@@ -689,6 +696,14 @@ def additional_reference_svg(reference, nodes, style):
     for node in (source, target):
         channels_y.update((node.y - margin, node.bottom + margin))
         channels_x.update((node.x - margin, node.x + node.w + margin))
+    channels_y.update((min(node.y for node in obstacles) - margin,
+                       max(node.bottom for node in obstacles) + margin))
+    for path in routed_paths:
+        for first, second in zip(path, path[1:]):
+            if first[1] == second[1]:
+                channels_y.update((first[1] - margin, first[1] + margin))
+            else:
+                channels_x.update((first[0] - margin, first[0] + margin))
     candidates = []
     same_side = source_side == target_side and source_side in ("l", "r", "t", "b")
     if source_side == target_side == "r":
@@ -704,17 +719,43 @@ def additional_reference_svg(reference, nodes, style):
         channels_y.add(min(source.y, target.y) - margin)
         channels_y = {y for y in channels_y if y <= min(source.y, target.y) - margin}
     if source_side == target_side == "r":
-        for channel_y in channels_y:
-            candidates.append([
-                (sx, sy), (sx + margin, sy), (sx + margin, channel_y),
-                (tx + margin, channel_y), (tx + margin, ty), (tx, ty),
-            ])
+        source_channels = [source.x + source.w + margin]
+        target_channels = [target.x + target.w + margin]
+        for path in routed_paths:
+            for first, second in zip(path, path[1:]):
+                if first[0] == second[0] and first[0] > source.x + source.w:
+                    source_channels.append(first[0] + margin)
+                if first[0] == second[0] and first[0] > target.x + target.w:
+                    target_channels.append(first[0] + margin)
+        clear_y = [y for y in channels_y if y not in (sy, ty)
+                   and all(y <= node.y - margin or y >= node.bottom + margin
+                           for node in all_nodes)]
+        for source_channel in source_channels:
+            for target_channel in target_channels:
+                for channel_y in clear_y:
+                    candidates.append([
+                        (sx, sy), (source_channel, sy), (source_channel, channel_y),
+                        (target_channel, channel_y), (target_channel, ty), (tx, ty),
+                    ])
     elif source_side == target_side == "l":
-        for channel_y in channels_y:
-            candidates.append([
-                (sx, sy), (sx - margin, sy), (sx - margin, channel_y),
-                (tx - margin, channel_y), (tx - margin, ty), (tx, ty),
-            ])
+        source_channels = [source.x - margin]
+        target_channels = [target.x - margin]
+        for path in routed_paths:
+            for first, second in zip(path, path[1:]):
+                if first[0] == second[0] and first[0] < source.x:
+                    source_channels.append(first[0] - margin)
+                if first[0] == second[0] and first[0] < target.x:
+                    target_channels.append(first[0] - margin)
+        clear_y = [y for y in channels_y if y not in (sy, ty)
+                   and all(y <= node.y - margin or y >= node.bottom + margin
+                           for node in all_nodes)]
+        for source_channel in source_channels:
+            for target_channel in target_channels:
+                for channel_y in clear_y:
+                    candidates.append([
+                        (sx, sy), (source_channel, sy), (source_channel, channel_y),
+                        (target_channel, channel_y), (target_channel, ty), (tx, ty),
+                    ])
     elif source_side == target_side == "b":
         for channel_x in channels_x:
             candidates.append([
@@ -750,26 +791,116 @@ def additional_reference_svg(reference, nodes, style):
          if index == 0 or point != candidate[index - 1]]
         for candidate in candidates
     ]
+    if not candidates:
+        candidates = [[(sx, sy), (sx + margin, sy), (tx + margin, ty), (tx, ty)]]
+    candidates = [
+        candidate for candidate in candidates
+        if len(candidate) > 1 and all(a != b for a, b in zip(candidate, candidate[1:]))
+    ]
 
     def blocked(a, b, node):
         if a[0] == b[0]:
-            return node.x < a[0] < node.x + node.w and max(min(a[1], b[1]), node.y) < min(max(a[1], b[1]), node.bottom)
+            return node.x <= a[0] <= node.x + node.w and max(min(a[1], b[1]), node.y) <= min(max(a[1], b[1]), node.bottom)
         if a[1] == b[1]:
-            return node.y < a[1] < node.bottom and max(min(a[0], b[0]), node.x) < min(max(a[0], b[0]), node.x + node.w)
+            return node.y <= a[1] <= node.bottom and max(min(a[0], b[0]), node.x) <= min(max(a[0], b[0]), node.x + node.w)
         return True
+
+    def conflicts(a, b, path):
+        """Return whether a segment overlaps or comes too close to a prior edge."""
+        if a == b:
+            return False
+        for c, d in zip(path, path[1:]):
+            if c[1] == d[1] and a[1] == b[1]:
+                if abs(a[1] - c[1]) < margin and max(min(a[0], b[0]), min(c[0], d[0])) <= min(max(a[0], b[0]), max(c[0], d[0])):
+                    return True
+            elif c[0] == d[0] and a[0] == b[0]:
+                if abs(a[0] - c[0]) < margin and max(min(a[1], b[1]), min(c[1], d[1])) <= min(max(a[1], b[1]), max(c[1], d[1])):
+                    return True
+            else:
+                horizontal = a[1] == b[1]
+                horizontal_segment = c[1] == d[1]
+                if horizontal != horizontal_segment:
+                    horizontal_part = (a, b) if horizontal else (c, d)
+                    vertical_part = (c, d) if horizontal else (a, b)
+                    if (min(horizontal_part[0][0], horizontal_part[1][0]) <= vertical_part[0][0] <= max(horizontal_part[0][0], horizontal_part[1][0])
+                            and min(vertical_part[0][1], vertical_part[1][1]) <= horizontal_part[0][1] <= max(vertical_part[0][1], horizontal_part[1][1])):
+                        return True
+        return False
 
     def score(candidate):
         blocked_count = sum(
             blocked(a, b, node) for a, b in zip(candidate, candidate[1:]) for node in obstacles
         )
         length = sum(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a, b in zip(candidate, candidate[1:]))
+        edge_conflicts = sum(
+            conflicts(a, b, prior)
+            for a, b in zip(candidate, candidate[1:])
+            for prior in routed_paths
+        )
         bends = sum(
             (a[0] != b[0] and b[1] != c[1]) or (a[1] != b[1] and b[0] != c[0])
             for a, b, c in zip(candidate, candidate[1:], candidate[2:])
         )
-        return blocked_count * 1_000_000 + bends * 100 + length
+        return blocked_count * 1_000_000 + edge_conflicts * 100_000 + bends * 100 + length
 
     path = min(candidates, key=score)
+    points = " ".join(f"{x:.0f},{y:.0f}" for x, y in path)
+    label_x, label_y = path[len(path) // 2]
+    routed_paths.append(path)
+    return [
+        f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
+        f'stroke-width="{style["stroke_width"]:g}" marker-end="url(#additional-reference)"/>',
+        f'<text x="{label_x:.0f}" y="{label_y - 4:.0f}" text-anchor="middle" '
+        f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
+        f'fill="{html.escape(style["text"], quote=True)}">{html.escape(reference.reference_type)}</text>',
+    ]
+
+
+def _libavoid_direction(anchor):
+    """Return pybind11/libavoid visibility flags for a selected node side."""
+    return {
+        "l": _adaptagrams.CONN_DIR_LEFT,
+        "r": _adaptagrams.CONN_DIR_RIGHT,
+        "t": _adaptagrams.CONN_DIR_UP,
+        "b": _adaptagrams.CONN_DIR_DOWN,
+    }[anchor]
+
+
+def route_additional_references_libavoid(references, nodes, all_nodes):
+    """Route all additional references in one libavoid transaction."""
+    if _adaptagrams is None or not references:
+        return None
+
+    rectangles = [
+        _adaptagrams.Rectangle(node.x, node.y, node.w, node.h)
+        for node in all_nodes
+    ]
+    connections = []
+    node_indices = {node: index for index, node in enumerate(all_nodes)}
+    for reference in references:
+        source = nodes[reference.source]
+        target = nodes[reference.target]
+        sx, sy = node_anchor(source, reference.source_anchor)
+        tx, ty = node_anchor(target, reference.target_anchor)
+        connections.append(_adaptagrams.Connection(
+            node_indices[source], node_indices[target],
+            sx, sy, tx, ty,
+            _libavoid_direction(reference.source_anchor),
+            _libavoid_direction(reference.target_anchor),
+        ))
+    native_routes = _adaptagrams.route(
+        rectangles, connections,
+        shape_buffer_distance=MIN_SPACING,
+        ideal_nudging_distance=MIN_SPACING,
+        segment_penalty=10.0,
+        crossing_penalty=1000.0,
+    )
+    routes = dict(zip(references, native_routes))
+    return routes
+
+
+def additional_reference_svg(reference, nodes, style, path):
+    """Render a route produced by libavoid."""
     points = " ".join(f"{x:.0f},{y:.0f}" for x, y in path)
     label_x, label_y = path[len(path) // 2]
     return [
@@ -1169,9 +1300,11 @@ def to_svg(root):
     nodes = []
     connectors = []
     nodes_by_id = {}
+    all_nodes = []
 
     def walk(node, is_root=False):
         nodes.extend(render_node_svg(node, root.style))
+        all_nodes.append(node)
         if node.node_id:
             nodes_by_id[node.node_id] = node
         if is_root:
@@ -1182,8 +1315,27 @@ def to_svg(root):
             walk(child)
 
     walk(root, is_root=True)
-    for reference in resolve_additional_references(root, nodes_by_id):
-        connectors.extend(additional_reference_svg(reference, nodes_by_id, root.style))
+    references = resolve_additional_references(root, nodes_by_id)
+    libavoid_routes = None
+    if references:
+        try:
+            libavoid_routes = route_additional_references_libavoid(
+                references, nodes_by_id, all_nodes
+            )
+        except Exception as exc:
+            if _adaptagrams is not None:
+                print(f"libavoid routing failed, using fallback: {exc}", file=sys.stderr)
+    if libavoid_routes is not None:
+        for reference in references:
+            connectors.extend(additional_reference_svg(
+                reference, nodes_by_id, root.style, libavoid_routes[reference]
+            ))
+    else:
+        routed_paths = []
+        for reference in references:
+            connectors.extend(_additional_reference_svg_fallback(
+                reference, nodes_by_id, root.style, routed_paths, all_nodes
+            ))
 
     svg = (
         f'<?xml version="1.0" encoding="UTF-8"?>\n'

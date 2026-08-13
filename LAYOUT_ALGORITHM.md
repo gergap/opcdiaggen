@@ -169,12 +169,51 @@ List of NonHierarchicalReferences:
 
 ### Orthogonal Edge Routing
 
-Edges are routed orthogonal.
+Edges are routed orthogonal. The layout is split into two stages:
+
+1. Nodes and hierarchical references are positioned using the layout groups and
+   shared trunks described above.
+2. Additional, non-hierarchical references are routed after the first layout
+   attempt with libavoid, using the fixed node positions as obstacles.
+
+The hierarchical trunks are not rerouted by libavoid. Their positions are part
+of the first layout result and remain stable. Libavoid is used for additional
+references because those references must adapt to the completed geometry.
 
 #### Rules
 
 - Edges never go through nodes.
 - Edges should keep MIN_SPACING distance from nodes.
+- Edges with distinct start and end points (not a common trunk) should not overlap.
+  This is a problem that occurs by respecting MIN_SPACING distance from a node.
+  In addition parallel edges should also keep MIN_SPACING distance.
+
+#### Libavoid Integration
+
+The native router is provided by the `_libavoid_py11` pybind11 extension. The
+extension exposes a batch routing operation instead of the complete libavoid
+C++ object model. It receives positioned node rectangles and all additional
+reference endpoints, creates the native router scene, and returns orthogonal
+point lists.
+
+Each positioned node becomes a libavoid `ShapeRef` obstacle. Libavoid's
+`shapeBufferDistance` is set to `MIN_SPACING`, reserving the required clearance
+around every node. Each additional reference becomes a `ConnRef` attached to
+per-connector `ShapeConnectionPin` objects on its source and target shapes.
+Pins use the selected `[t]`, `[b]`, `[l]`, or `[r]` direction and are offset into
+the node by `MIN_SPACING`. Free-point endpoints on the raw boundary are not
+used because they do not account for the buffered obstacle boundary.
+
+All additional connectors are submitted before libavoid processes the scene, so
+the router can optimize them as a complete set. The routing configuration uses
+the shape buffer and nudging distance, segment and crossing penalties, and
+`nudgeOrthogonalSegmentsConnectedToShapes` to separate parallel paths and
+reduce crossings where possible.
+
+Returned routes are checked for intersections with buffered non-endpoint node
+rectangles before rendering. If the native extension is unavailable, or if it
+returns an unusable or colliding route, the renderer uses its built-in
+orthogonal fallback router.
 
 #### South-North Direction
 
@@ -257,9 +296,10 @@ In this case the length of b2 and c2 are zero.
 ### Additional References
 
 The main layout algorithm works using the given hierarchy of objects.
-Additional, non-hierarchical references may be specified in addition after the
-node hierarchy. These references are routed after the node and main references
-have been laid out. Therefor the nodes can contain an optional Id in the format
+Additional, non-hierarchical references may be specified after the node
+hierarchy. These references are routed after the nodes and main hierarchy
+references have been laid out, using the libavoid integration described above.
+Therefore the nodes can contain an optional ID in the format
 `{#identifier}`, that is used to specify additional references.
 
 Id Example:
@@ -280,7 +320,9 @@ ref AssociatedWith boiler1_pressure - boiler2_pressure
 ref AssociatedWith [r] boiler1_temperature - boiler2_temperature [r]
 ```
 
-The user may specify the optional anchor points of start and end node.
-If not specified the algorithm must choose a free anchor point, preferring
-points which lay in edge direction.
-Anchor points can only be used if either unused, or used by the same reference type.
+The user may specify the optional anchor points of the start and end node. If
+not specified, the first layout stage chooses a free anchor point, preferring
+the side in the direction of the other node. Anchor points can only be used if
+either unused, or used by the same reference type. The selected sides are then
+passed to libavoid as directional shape pins and are not changed during
+additional-reference routing.
