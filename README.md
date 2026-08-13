@@ -30,8 +30,7 @@ collaboration diagram.
 
 ## Installation
 
-Python 3 is required to render SVG files. The renderer can run without the
-native libavoid extension, using its built-in fallback router. `rsvg-convert`
+Python 3 is required to render SVG files. `rsvg-convert`
 is additionally required only for PNG generation. On Debian or Ubuntu, install
 both with:
 
@@ -118,7 +117,8 @@ references are laid out by the algorithm described in
 `LAYOUT_ALGORITHM.md`. Then additional, non-hierarchical references are routed
 with libavoid's orthogonal object-avoiding router when the pybind11 extension is
 available. Hierarchy trunks and their layout are not passed back through
-libavoid.
+libavoid. If libavoid is unavailable or fails to route, additional references
+are omitted; nodes and hierarchy references are still rendered.
 
 Libavoid routes all additional references in one batch. Node rectangles are
 obstacles, and each connector is attached to a directional
@@ -126,8 +126,8 @@ obstacles, and each connector is attached to a directional
 `MIN_SPACING` as its shape buffer and nudging distance, with penalties for
 extra segments and crossings. The returned paths are checked for node
 collisions before rendering. If the extension is unavailable or returns an
-invalid path, the built-in Python router is used instead. Anchor points are
-selected automatically or can be specified with `[t]`, `[b]`, `[l]`, or `[r]`.
+invalid path, additional references are omitted. Anchor points are selected
+automatically or can be specified with `[t]`, `[b]`, `[l]`, or `[r]`.
 
 For an Adaptagrams source checkout cloned into `./adaptagrams`, the included
 script uses that checkout. Otherwise CMake fetches Adaptagrams and pybind11:

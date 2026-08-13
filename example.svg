@@ -67,9 +67,9 @@
 
 <line x1="494" y1="404" x2="604" y2="404" stroke="#404040" stroke-width="1.3" marker-end="url(#has-property)"/>
 
-<polyline points="384,344 404,344 404,324 804,324 804,344 784,344" fill="none" stroke="#404040" stroke-width="1.3" marker-end="url(#additional-reference)"/>
-<text x="804" y="320" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
-<polyline points="384,404 404,404 404,384 804,384 804,404 784,404" fill="none" stroke="#404040" stroke-width="1.3" marker-end="url(#additional-reference)"/>
-<text x="804" y="380" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
+<polyline points="384,344 429,344 429,464 824,464 824,344 784,344" fill="none" stroke="#404040" stroke-width="1.3" marker-end="url(#additional-reference)"/>
+<text x="824" y="460" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
+<polyline points="384,404 449,404 449,444 804,444 804,404 784,404" fill="none" stroke="#404040" stroke-width="1.3" marker-end="url(#additional-reference)"/>
+<text x="804" y="440" text-anchor="middle" font-family="Helvetica" font-size="10" fill="#000000">AssociatedWith</text>
 </g>
 </svg>

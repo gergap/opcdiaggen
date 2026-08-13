@@ -819,6 +819,25 @@ def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, al
                     conflicts += 1
         return conflicts
 
+    def crossings(a, b, path):
+        """Count strict perpendicular crossings with a prior route."""
+        if a == b:
+            return 0
+        count = 0
+        horizontal = a[1] == b[1]
+        for c, d in zip(path, path[1:]):
+            other_horizontal = c[1] == d[1]
+            if horizontal == other_horizontal:
+                continue
+            horizontal_segment = (a, b) if horizontal else (c, d)
+            vertical_segment = (c, d) if horizontal else (a, b)
+            hx1, hx2 = sorted((horizontal_segment[0][0], horizontal_segment[1][0]))
+            vy1, vy2 = sorted((vertical_segment[0][1], vertical_segment[1][1]))
+            x, y = vertical_segment[0][0], horizontal_segment[0][1]
+            if hx1 < x < hx2 and vy1 < y < vy2:
+                count += 1
+        return count
+
     def score(candidate):
         blocked_count = 0
         for segment_index, (a, b) in enumerate(zip(candidate, candidate[1:])):
@@ -835,13 +854,20 @@ def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, al
             for a, b in zip(candidate, candidate[1:])
             for prior in routed_paths
         )
+        crossing_count = sum(
+            crossings(a, b, prior)
+            for a, b in zip(candidate, candidate[1:])
+            for prior in routed_paths
+        )
         bends = sum(
             (a[0] != b[0] and b[1] != c[1]) or (a[1] != b[1] and b[0] != c[0])
             for a, b, c in zip(candidate, candidate[1:], candidate[2:])
         )
-        # Crossings may be unavoidable for a fixed node order; parallel
-        # segments must still remain at least MIN_SPACING apart.
-        return blocked_count * 1_000_000 + edge_conflicts * 100_000 + bends * 100 + length
+        # Crossings may be unavoidable for a fixed node order. Prefer fewer
+        # crossings before optimizing bends and length, while keeping parallel
+        # clearance as the stronger constraint.
+        return (blocked_count * 1_000_000 + edge_conflicts * 100_000
+                + crossing_count * 10_000 + bends * 100 + length)
 
     path = min(candidates, key=score)
     points = " ".join(f"{x:.0f},{y:.0f}" for x, y in path)
@@ -866,7 +892,7 @@ def _libavoid_direction(anchor):
     }[anchor]
 
 
-def route_additional_references_libavoid(references, nodes, all_nodes):
+def route_additional_references_libavoid(references, nodes, all_nodes, fixed_paths):
     """Route all additional references in one libavoid transaction."""
     if _adaptagrams is None or not references:
         return None
@@ -890,10 +916,11 @@ def route_additional_references_libavoid(references, nodes, all_nodes):
         ))
     native_routes = _adaptagrams.route(
         rectangles, connections,
+        fixed_paths,
         shape_buffer_distance=MIN_SPACING,
         ideal_nudging_distance=MIN_SPACING,
         segment_penalty=10.0,
-        crossing_penalty=1000.0,
+        crossing_penalty=10000.0,
     )
     routes = dict(zip(references, native_routes))
     return routes
@@ -901,8 +928,64 @@ def route_additional_references_libavoid(references, nodes, all_nodes):
 
 def additional_reference_svg(reference, nodes, style, path):
     """Render a route produced by libavoid."""
-    points = " ".join(f"{x:.0f},{y:.0f}" for x, y in path)
-    label_x, label_y = path[len(path) // 2]
+    # libavoid pins are offset inside shapes to route around the buffered
+    # obstacle. Render the visible endpoints on the node boundaries instead.
+    source_boundary = node_anchor(nodes[reference.source], reference.source_anchor)
+    target_boundary = node_anchor(nodes[reference.target], reference.target_anchor)
+    rendered_path = list(path)
+
+    def add_orthogonal_endpoint(points, node, boundary, side, at_start):
+        points = list(points)
+
+        def inside(point):
+            return (node.x <= point[0] <= node.x + node.w
+                    and node.y <= point[1] <= node.bottom)
+
+        # ShapeConnectionPin endpoints are intentionally inside the node. Do
+        # not render those points: the visible route must leave the boundary
+        # in the selected outward direction.
+        if at_start:
+            while len(points) > 1 and inside(points[0]):
+                points.pop(0)
+        else:
+            while len(points) > 1 and inside(points[-1]):
+                points.pop()
+        native = points[0] if at_start else points[-1]
+        if side == "r":
+            outward = (boundary[0] + MIN_SPACING, boundary[1])
+        elif side == "l":
+            outward = (boundary[0] - MIN_SPACING, boundary[1])
+        elif side == "b":
+            outward = (boundary[0], boundary[1] + MIN_SPACING)
+        else:
+            outward = (boundary[0], boundary[1] - MIN_SPACING)
+        bridge = ((outward[0], native[1]) if side in ("l", "r")
+                  else (native[0], outward[1]))
+        if at_start:
+            return [boundary, outward, bridge] + points
+        return points + [bridge, outward, boundary]
+
+    rendered_path = add_orthogonal_endpoint(
+        rendered_path, nodes[reference.source], source_boundary,
+        reference.source_anchor, True
+    )
+    rendered_path = add_orthogonal_endpoint(
+        rendered_path, nodes[reference.target], target_boundary,
+        reference.target_anchor, False
+    )
+    simplified = [rendered_path[0]]
+    for point in rendered_path[1:]:
+        if point == simplified[-1]:
+            continue
+        if (len(simplified) >= 2
+                and ((simplified[-2][0] == simplified[-1][0] == point[0])
+                     or (simplified[-2][1] == simplified[-1][1] == point[1]))):
+            simplified[-1] = point
+        else:
+            simplified.append(point)
+    rendered_path = simplified
+    points = " ".join(f"{x:.0f},{y:.0f}" for x, y in rendered_path)
+    label_x, label_y = rendered_path[len(rendered_path) // 2]
     return [
         f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
         f'stroke-width="{style["stroke_width"]:g}" marker-end="url(#additional-reference)"/>',
@@ -910,6 +993,20 @@ def additional_reference_svg(reference, nodes, style, path):
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
         f'fill="{html.escape(style["text"], quote=True)}">{html.escape(reference.reference_type)}</text>',
     ]
+
+
+def fixed_connector_paths(parts):
+    """Extract existing hierarchy line segments for libavoid's fixed routes."""
+    paths = []
+    pattern = re.compile(
+        r'<line[^>]*x1="([0-9.+-]+)"[^>]*y1="([0-9.+-]+)"[^>]*'
+        r'x2="([0-9.+-]+)"[^>]*y2="([0-9.+-]+)"'
+    )
+    for part in parts:
+        for match in pattern.finditer(part):
+            x1, y1, x2, y2 = (float(value) for value in match.groups())
+            paths.append([(x1, y1), (x2, y2)])
+    return paths
 
 
 def reference_anchors(node, groups):
@@ -1316,26 +1413,21 @@ def to_svg(root):
 
     walk(root, is_root=True)
     references = resolve_additional_references(root, nodes_by_id)
-    libavoid_routes = None
-    if references:
+    if references and _adaptagrams is None:
+        print("libavoid unavailable; skipping additional references", file=sys.stderr)
+    elif references:
         try:
             libavoid_routes = route_additional_references_libavoid(
-                references, nodes_by_id, all_nodes
+                references, nodes_by_id, all_nodes,
+                fixed_connector_paths(connectors)
             )
         except Exception as exc:
-            if _adaptagrams is not None:
-                print(f"libavoid routing failed, using fallback: {exc}", file=sys.stderr)
-    if libavoid_routes is not None:
-        for reference in references:
-            connectors.extend(additional_reference_svg(
-                reference, nodes_by_id, root.style, libavoid_routes[reference]
-            ))
-    else:
-        routed_paths = []
-        for reference in references:
-            connectors.extend(_additional_reference_svg_fallback(
-                reference, nodes_by_id, root.style, routed_paths, all_nodes
-            ))
+            print(f"libavoid routing failed; skipping additional references: {exc}", file=sys.stderr)
+        else:
+            for reference in references:
+                connectors.extend(additional_reference_svg(
+                    reference, nodes_by_id, root.style, libavoid_routes[reference]
+                ))
 
     svg = (
         f'<?xml version="1.0" encoding="UTF-8"?>\n'

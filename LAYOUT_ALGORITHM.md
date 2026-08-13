@@ -213,7 +213,8 @@ reduce crossings where possible.
 Returned routes are checked for intersections with buffered non-endpoint node
 rectangles before rendering. If the native extension is unavailable, or if it
 returns an unusable or colliding route, the renderer uses its built-in
-orthogonal fallback router.
+additional references are omitted. Nodes and hierarchical references remain
+rendered.
 
 #### South-North Direction
 
