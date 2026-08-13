@@ -985,7 +985,23 @@ def additional_reference_svg(reference, nodes, style, path):
             simplified.append(point)
     rendered_path = simplified
     points = " ".join(f"{x:.0f},{y:.0f}" for x, y in rendered_path)
-    label_x, label_y = rendered_path[len(rendered_path) // 2]
+    segments = list(zip(rendered_path, rendered_path[1:]))
+    label_segment = max(
+        segments,
+        key=lambda segment: abs(segment[1][0] - segment[0][0])
+        + abs(segment[1][1] - segment[0][1]),
+    )
+    first, second = label_segment
+    label_width_estimate = len(reference.reference_type) * 10 * 0.6
+    if first[1] == second[1]:
+        label_x = (first[0] + second[0]) / 2
+        label_y = first[1] - 4
+    else:
+        label_x = min(first[0], second[0]) + 4
+        label_y = (first[1] + second[1]) / 2
+    label_x = max(label_width_estimate / 2 + 4,
+                  min(CANVAS_W - label_width_estimate / 2 - 4, label_x))
+    label_y = max(FONT_SIZE, min(CANVAS_H - 2, label_y))
     return [
         f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
         f'stroke-width="{style["stroke_width"]:g}" marker-end="url(#additional-reference)"/>',
