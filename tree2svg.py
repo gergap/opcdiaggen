@@ -683,7 +683,7 @@ def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, al
     margin = MIN_SPACING
     # Include endpoints as obstacles too: a same-side route must not cross the
     # target or source body before reaching its selected boundary anchor.
-    obstacles = [node for node in all_nodes if node not in (source, target)]
+    obstacles = list(all_nodes)
     source_side = anchor_side(source, reference.source_anchor)
     target_side = anchor_side(target, reference.target_anchor)
     channels_y = {sy, ty}
@@ -805,35 +805,33 @@ def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, al
             return node.y <= a[1] <= node.bottom and max(min(a[0], b[0]), node.x) <= min(max(a[0], b[0]), node.x + node.w)
         return True
 
-    def conflicts(a, b, path):
-        """Return whether a segment overlaps or comes too close to a prior edge."""
+    def parallel_conflicts(a, b, path):
+        """Count prior collinear segments that violate MIN_SPACING."""
         if a == b:
-            return False
+            return 0
+        conflicts = 0
         for c, d in zip(path, path[1:]):
             if c[1] == d[1] and a[1] == b[1]:
                 if abs(a[1] - c[1]) < margin and max(min(a[0], b[0]), min(c[0], d[0])) <= min(max(a[0], b[0]), max(c[0], d[0])):
-                    return True
+                    conflicts += 1
             elif c[0] == d[0] and a[0] == b[0]:
                 if abs(a[0] - c[0]) < margin and max(min(a[1], b[1]), min(c[1], d[1])) <= min(max(a[1], b[1]), max(c[1], d[1])):
-                    return True
-            else:
-                horizontal = a[1] == b[1]
-                horizontal_segment = c[1] == d[1]
-                if horizontal != horizontal_segment:
-                    horizontal_part = (a, b) if horizontal else (c, d)
-                    vertical_part = (c, d) if horizontal else (a, b)
-                    if (min(horizontal_part[0][0], horizontal_part[1][0]) <= vertical_part[0][0] <= max(horizontal_part[0][0], horizontal_part[1][0])
-                            and min(vertical_part[0][1], vertical_part[1][1]) <= horizontal_part[0][1] <= max(vertical_part[0][1], horizontal_part[1][1])):
-                        return True
-        return False
+                    conflicts += 1
+        return conflicts
 
     def score(candidate):
-        blocked_count = sum(
-            blocked(a, b, node) for a, b in zip(candidate, candidate[1:]) for node in obstacles
-        )
+        blocked_count = 0
+        for segment_index, (a, b) in enumerate(zip(candidate, candidate[1:])):
+            for node in obstacles:
+                endpoint_segment = (
+                    (node is source and segment_index == 0)
+                    or (node is target and segment_index == len(candidate) - 2)
+                )
+                if not endpoint_segment and blocked(a, b, node):
+                    blocked_count += 1
         length = sum(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a, b in zip(candidate, candidate[1:]))
         edge_conflicts = sum(
-            conflicts(a, b, prior)
+            parallel_conflicts(a, b, prior)
             for a, b in zip(candidate, candidate[1:])
             for prior in routed_paths
         )
@@ -841,6 +839,8 @@ def _additional_reference_svg_fallback(reference, nodes, style, routed_paths, al
             (a[0] != b[0] and b[1] != c[1]) or (a[1] != b[1] and b[0] != c[0])
             for a, b, c in zip(candidate, candidate[1:], candidate[2:])
         )
+        # Crossings may be unavoidable for a fixed node order; parallel
+        # segments must still remain at least MIN_SPACING apart.
         return blocked_count * 1_000_000 + edge_conflicts * 100_000 + bends * 100 + length
 
     path = min(candidates, key=score)
