@@ -1002,9 +1002,12 @@ def additional_reference_svg(reference, nodes, style, path):
     label_x = max(label_width_estimate / 2 + 4,
                   min(CANVAS_W - label_width_estimate / 2 - 4, label_x))
     label_y = max(FONT_SIZE, min(CANVAS_H - 2, label_y))
+    symmetric = reference.reference_type.lower() == "associatedwith"
+    marker = "associated-with" if symmetric else "additional-reference"
+    marker_start = f' marker-start="url(#{marker})"' if symmetric else ""
     return [
         f'<polyline points="{points}" fill="none" stroke="{html.escape(style["arrow"], quote=True)}" '
-        f'stroke-width="{style["stroke_width"]:g}" marker-end="url(#additional-reference)"/>',
+        f'stroke-width="{style["stroke_width"]:g}"{marker_start} marker-end="url(#{marker})"/>',
         f'<text x="{label_x:.0f}" y="{label_y - 4:.0f}" text-anchor="middle" '
         f'font-family="{html.escape(style["font"], quote=True)}" font-size="10" '
         f'fill="{html.escape(style["text"], quote=True)}">{html.escape(reference.reference_type)}</text>',
@@ -1401,6 +1404,10 @@ def render_defs(style):
         '<marker id="additional-reference" viewBox="0 0 15 12" markerWidth="15" '
         'markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse">'
         '<path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" '
+        'stroke-width="1"/></marker>',
+        '<marker id="associated-with" viewBox="0 0 10.39 12" markerWidth="10.39" '
+        'markerHeight="12" refX="10.39" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">'
+        '<path d="M0,0 L10.39,6 L0,12" fill="context-stroke" stroke="context-stroke" '
         'stroke-width="1"/></marker>',
     ))
     parts.append("</defs>")
