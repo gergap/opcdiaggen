@@ -69,6 +69,34 @@ sudo apt install python3 librsvg2-bin make
 
 You can use the Linux instructions below now also on Windows inside WSL.
 
+## LibAvoid Bindings
+
+Build the optional native libavoid binding with CMake. For an Adaptagrams
+source checkout cloned into `./adaptagrams`, the included script uses that
+checkout. Otherwise CMake fetches Adaptagrams and pybind11:
+
+```sh
+./build_libavoid_py11.sh
+```
+
+The script delegates compiler, Python, dependency-fetching, and
+platform-specific linking decisions to CMake. Set `CMAKE_GENERATOR`,
+`CMAKE_BUILD_DIR`, or `CMAKE_BUILD_TYPE` when needed, and pass a different
+Adaptagrams checkout as the first argument.
+
+Alternatively, invoke CMake directly:
+
+```sh
+cmake -S . -B build
+cmake --build build --config Release
+```
+
+When `./adaptagrams` exists, CMake uses it instead of downloading Adaptagrams.
+Use `-DOPCDIAGGEN_ADAPTAGRAMS_DIR=/path/to/adaptagrams` to select another
+checkout. Disable downloads with `-DOPCDIAGGEN_FETCH_DEPENDENCIES=OFF` when
+both Adaptagrams and pybind11 are already installed or otherwise supplied to
+CMake.
+
 ## Usage
 
 Render one diagram directly in a Linux shell:
@@ -103,62 +131,9 @@ The renderer supports arbitrary hierarchy depth. Branches grow outward
 from the root, siblings are stacked vertically, and left/right connectors are
 mirrored.
 
-Nodes may have optional markdown-style IDs, which can be used by additional
-references:
-
-```text
-*** var "Pressure" {#pressure}
-ref AssociatedWith pressure - temperature
-ref AssociatedWith [r] pressure - temperature [l]
-```
-
-The renderer uses a two-stage pipeline. First, nodes and hierarchical
-references are laid out by the algorithm described in
-`LAYOUT_ALGORITHM.md`. Then additional, non-hierarchical references are routed
-with libavoid's orthogonal object-avoiding router when the pybind11 extension is
-available. Hierarchy trunks and their layout are not passed back through
-libavoid. If libavoid is unavailable or fails to route, additional references
-are omitted; nodes and hierarchy references are still rendered.
-
-Libavoid routes all additional references in one batch. Node rectangles are
-obstacles, and each connector is attached to a directional
-`ShapeConnectionPin` on its source and target node. The router uses
-`MIN_SPACING` as its shape buffer and nudging distance, with penalties for
-extra segments and crossings. The returned paths are checked for node
-collisions before rendering. If the extension is unavailable or returns an
-invalid path, additional references are omitted. Anchor points are selected
-automatically or can be specified with `[t]`, `[b]`, `[l]`, or `[r]`.
-
-For an Adaptagrams source checkout cloned into `./adaptagrams`, the included
-script uses that checkout. Otherwise CMake fetches Adaptagrams and pybind11:
-
-```sh
-./build_libavoid_py11.sh
-```
-
-The script delegates compiler, Python, dependency-fetching, and
-platform-specific linking decisions to CMake. Set `CMAKE_GENERATOR`,
-`CMAKE_BUILD_DIR`, or `CMAKE_BUILD_TYPE` when needed, and pass a different
-Adaptagrams checkout as the first argument.
-
-Alternatively, CMake can fetch both dependencies and build the native library
-and binding portably on Linux and Windows:
-
-```sh
-cmake -S . -B build
-cmake --build build --config Release
-```
-
-When `./adaptagrams` exists, CMake uses it instead of downloading Adaptagrams.
-Use `-DOPCDIAGGEN_ADAPTAGRAMS_DIR=/path/to/adaptagrams` to select another
-checkout. Disable downloads with `-DOPCDIAGGEN_FETCH_DEPENDENCIES=OFF` when
-both Adaptagrams and pybind11 are already installed or otherwise supplied to
-CMake.
-
-The binding attaches every connector to a libavoid `ShapeConnectionPin` and
-places boundary pins inside the node by the configured clearance distance. This
-is required for orthogonal routes because free-point endpoints on the raw node
-boundary do not account for libavoid's buffered obstacle boundary.
+Additional references are rendered when the native libavoid binding is
+available. If it is unavailable or fails to route, additional references are
+omitted while nodes and hierarchy references are still rendered.
 
 ## Input
 
@@ -166,15 +141,6 @@ The input uses a type-system section with PlantUML WBS-style depth markers. Each
 node may start with one of the supported node classes: `obj`, `objtype`, `var`,
 `vartype`, `method`, `reftype`, `datatype`, or `view`. If the class is omitted,
 it defaults to `objtype`.
-
-Blank lines between root-level groups separate columns. Nodes in the same group
-are stacked vertically in that column.
-
-When the reference type is omitted, it is inferred as follows: an object to an
-object type uses `hasTypeDefinition`, an object to an object uses
-`hasComponent`, an object or object type to a variable uses `hasProperty`, and
-all other relationships use inheritance. Put an explicit reference type before
-the node class when a different relationship is required.
 
 ```text
 @starttypesystem
@@ -185,6 +151,28 @@ the node class when a different relationship is required.
 ** Organizes obj "Views"
 @endtypesystem
 ```
+
+Blank lines between root-level groups separate columns. Nodes in the same group
+are stacked vertically in that column.
+
+When the reference type is omitted, it is inferred as follows: an object to an
+object type uses `hasTypeDefinition`, an object to an object uses
+`hasComponent`, an object or object type to a variable uses `hasProperty`, and
+all other relationships use inheritance. Put an explicit reference type before
+the node class when a different relationship is required.
+
+Nodes may have optional markdown-style IDs, which can be used by additional
+references:
+
+```text
+*** var "Foo" {#foo}
+*** var "Bar" {#bar}
+ref AssociatedWith foo - bar
+ref AssociatedWith [r] foo - bar [l]
+```
+
+Anchor points are selected automatically or can be specified with `[t]` (top),
+`[b]` (bottom), `[l]` (left), or `[r]` (right).
 
 Node styling is read from the relevant `skinparam` settings. Shadows are
 mandatory for type nodes and are not configurable; instance nodes do not have

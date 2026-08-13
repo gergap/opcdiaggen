@@ -212,9 +212,12 @@ reduce crossings where possible.
 
 Returned routes are checked for intersections with buffered non-endpoint node
 rectangles before rendering. If the native extension is unavailable, or if it
-returns an unusable or colliding route, the renderer uses its built-in
-additional references are omitted. Nodes and hierarchical references remain
-rendered.
+returns an unusable or colliding route, additional references are omitted.
+Nodes and hierarchical references remain rendered.
+
+When an additional route crosses an existing route, the SVG renderer adds a
+small orthogonal bump to make the crossing distinct from a junction. The bump
+is visual only and does not change the libavoid route geometry.
 
 #### South-North Direction
 
