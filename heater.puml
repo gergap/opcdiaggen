@@ -1,0 +1,17 @@
+' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
+' SPDX-License-Identifier: MIT
+
+@starttypesystem
+skinparam nodeMinWidth 180
+
+* obj "Heater"
+
+** HasComponent method "Start"
+** HasComponent obj "Sensor"
+*** HasProperty var "Temperature"
+*** HasProperty var "Pressure"
+** HasComponent obj "Heating Element"
+*** HasProperty var "Temperature Setpoint\n100"
+*** HasProperty var "Status\nOff"
+
+@endtypesystem

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="837px" height="550px" viewBox="-0.5 -0.5 837 550">
+<defs><linearGradient id="instance-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f0f0f0"/></linearGradient><marker id="has-component" viewBox="0 0 6 12" markerWidth="6" markerHeight="12" refX="6" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M4.5,0 L4.5,12" fill="none" stroke="context-stroke" stroke-width="1.3"/></marker><marker id="has-property" viewBox="0 0 10.5 12" markerWidth="10.5" markerHeight="12" refX="10.5" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M3,0 L3,12 M6,0 L6,12" fill="none" stroke="context-stroke" stroke-width="1.3"/></marker><marker id="organizes" viewBox="0 0 15 12" markerWidth="15" markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" stroke-width="1.3"/></marker><marker id="additional-reference" viewBox="0 0 15 12" markerWidth="15" markerHeight="12" refX="15" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L15,6 L0,12" fill="none" stroke="context-stroke" stroke-width="1.3"/></marker></defs>
+<g>
+<g><rect x="298" y="4" width="230" height="40" fill="url(#instance-fill)" stroke="#404040" stroke-width="1.3"/><text x="413" y="28.0" text-anchor="middle" font-family="Helvetica" font-size="12"><tspan x="413" dy="0">root</tspan></text></g>
+<g><rect x="548" y="64" width="230" height="40" fill="url(#instance-fill)" stroke="#404040" stroke-width="1.3"/><text x="663" y="88.0" text-anchor="middle" font-family="Helvetica" font-size="12"><tspan x="663" dy="0">child</tspan></text></g>
+<path d="M 413,44 L 413,64" fill="none" stroke="#404040" stroke-width="1.3" stroke-linecap="round"/>
+<path d="M 413,64 L 528,64 L 528,84" fill="none" stroke="#404040" stroke-width="1.3" stroke-linecap="round"/>
+<path d="M 528,84 L 548,84" fill="none" stroke="#404040" stroke-width="1.3" stroke-linecap="round" marker-end="url(#has-component)"/>
+</g>
+</svg>

@@ -103,6 +103,8 @@ Render one diagram directly in a Linux shell:
 
 ```sh
 ./tree2svg.py opcua.puml -o opcua.svg
+# show placed trunk junctions as filled debug circles
+./tree2svg.py opcua.puml --show-junctions -o opcua-debug.svg
 ```
 
 On Windows using PowerShell, you can use it like this:
@@ -118,6 +120,12 @@ regenerated.
 ```sh
 make
 ```
+
+The implementation is split into `opcdiaggen/model.py`, `parser.py`,
+`layout/`, `connectors.py`, `routing.py`, and `svg.py`. Layout strategies are
+replaceable per subtree through `CompositeLayout`; custom strategies implement
+the `Layout` interface. `LibavoidRouter` is isolated from the data model and
+renderer, so routing can be replaced without changing layout or SVG code.
 
 Other targets:
 
