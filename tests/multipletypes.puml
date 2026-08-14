@@ -3,7 +3,9 @@
 
 @starttypesystem
 
-* obj "root"
-** HasComponent obj "child"
+* objtype "BaseType"
+** objtype "SubType"
+*** objtype "SubSubType"
+** objtype "SubType2"
 
 @endtypesystem

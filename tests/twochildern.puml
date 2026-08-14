@@ -4,6 +4,8 @@
 @starttypesystem
 
 * obj "root"
-** HasComponent obj "child"
+** HasComponent obj "child1"
+
+** HasComponent obj "child2"
 
 @endtypesystem

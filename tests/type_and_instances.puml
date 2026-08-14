@@ -1,0 +1,15 @@
+' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
+' SPDX-License-Identifier: MIT
+
+@starttypesystem
+
+* objtype "BaseType"
+** HasComponent obj "InstanceDeclaration"
+** objtype "SubType"
+*** HasProperty obj "InstanceDeclaration2"
+*** objtype "SubSubType"
+**** HasProperty obj "InstanceDeclaration3"
+** objtype "SubType2"
+**** HasProperty obj "InstanceDeclaration4"
+
+@endtypesystem
