@@ -1166,7 +1166,15 @@ def render_root_connectors_svg(root, style):
     groups = {}
     for child in root.children:
         groups.setdefault(child.branch_group, []).append(child)
-    grouped_columns = len(groups) > 1
+    # Aggregate children are laid out as one vertical column even when no
+    # blank-line branch break created multiple groups.  Treat that case like
+    # grouped columns; the single-group path below is for structural siblings
+    # that were actually laid out side by side.
+    vertical_children = all(
+        child.reference_type in ("hasProperty", "hasComponent", "Organizes")
+        for child in root.children
+    )
+    grouped_columns = len(groups) > 1 or vertical_children
     group_trunks = []
     if grouped_columns:
         for column in groups.values():
@@ -1183,7 +1191,8 @@ def render_root_connectors_svg(root, style):
     else:
         group_trunks = [(child.cx, [child]) for child in root.children]
 
-    xs = [trunk_x for trunk_x, _ in group_trunks] if grouped_columns else [c.cx for c in root.children]
+    xs = ([root.cx] + [trunk_x for trunk_x, _ in group_trunks]
+          if grouped_columns else [c.cx for c in root.children])
     parts.append(
         f'<line x1="{min(xs):.0f}" y1="{bus_y:.0f}" '
         f'x2="{max(xs):.0f}" y2="{bus_y:.0f}" '
