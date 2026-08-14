@@ -30,6 +30,13 @@
 PYTHON   ?= python3
 RSVG     ?= rsvg-convert
 TREE2SVG ?= tree2svg.py
+SHOW_JUNCTIONS ?= 0
+
+ifeq ($(SHOW_JUNCTIONS),1)
+JUNCTION_FLAGS := --show-junctions
+else
+JUNCTION_FLAGS :=
+endif
 
 # All PlantUML source files in this directory (edit SRC if you keep them
 # somewhere else, e.g. SRC := diagrams/*.puml)
@@ -51,7 +58,7 @@ png: $(PNG)
 
 # .puml -> .svg
 %.svg: %.puml $(TREE2SVG)
-	$(PYTHON) $(TREE2SVG) $< -o $@
+	$(PYTHON) $(TREE2SVG) $< -o $@ $(JUNCTION_FLAGS)
 
 # rasterize, white background
 %.png: %.svg
@@ -74,3 +81,4 @@ help:
 	@echo ""
 	@echo "Variables:"
 	@echo "  TREE2SVG          path to tree2svg.py (default: $(TREE2SVG))"
+	@echo "  SHOW_JUNCTIONS    render junction debug circles when set to 1"
