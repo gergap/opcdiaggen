@@ -5,9 +5,9 @@
 skinparam nodeMinWidth 180
 
 * objtype "BoilerType"
-*** var "Pressure\n[Double]" {#boilertype_pressure}
-*** var "Temperature\n[Float]"
-*** var "Flow [Double]\nOptional"
+** var "Pressure\n[Double]" {#boilertype_pressure}
+** var "Temperature\n[Float]"
+** var "Flow [Double]\nOptional"
 
 ** obj "Boiler #1" {#boiler1}
 *** hasProperty var "Pressure\n1500.00 kPa" {#boiler1_pressure}
