@@ -1,0 +1,9 @@
+' SPDX-FileCopyrightText: 2026 Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
+' SPDX-License-Identifier: MIT
+
+@starttypesystem
+
+* obj "root"
+** obj "child"
+
+@endtypesystem

@@ -294,15 +294,25 @@ def infer_reference_type(source_class, destination_class):
     The tree edge is stored on the child, so an object below an object type
     points back to its type with HasTypeDefinition.
     """
+
+    # detect inheritence
+    if source_class.endswith("type") and source_class == destination_class:
+        return "inheritance"
+
+    # detect type definitions
     if source_class == "objtype" and destination_class == "obj":
         return "hasTypeDefinition"
-    if source_class == "obj" and destination_class == "obj":
+    if source_class == "vartype" and destination_class == "var":
+        return "hasTypeDefinition"
+
+    # detect instance declaration and other aggregations
+    if source_class == "obj" and destination_class in ("obj", "method"):
         return "hasComponent"
-    if source_class == "obj" and destination_class in ("var", "vartype"):
+    if source_class in ("obj", "objtype") and destination_class == "var":
         return "hasProperty"
-    if source_class in ("obj", "objtype") and destination_class in ("var", "vartype"):
-        return "hasProperty"
-    return "inheritance"
+
+    # default to Organies
+    return "organizes"
 
 
 # --- 2. layout ----------------------------------------------------------------
